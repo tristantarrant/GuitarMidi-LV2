@@ -104,8 +104,8 @@ struct Controls
     float smoothingOffset = 0.3f;
     float onsetThreshold = 0.80f;
     float offsetThreshold = 0.10f;
-    float onsetEnergy = -20.0f;
-    float offsetEnergy = -20.0f;
+    float onsetEnergy = -66.0f;
+    float offsetEnergy = -66.0f;
 };
 
 struct RunResult

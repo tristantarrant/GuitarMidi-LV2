@@ -8,6 +8,9 @@ add_test(NAME ringbuffer COMMAND test_ringbuffer)
 add_executable(test_postprocess test_postprocess.cpp)
 add_test(NAME postprocess COMMAND test_postprocess)
 
+add_executable(test_level test_level.cpp)
+add_test(NAME level COMMAND test_level)
+
 add_executable(test_midi_input test_midi_input.cpp)
 target_link_libraries(test_midi_input PRIVATE guitarmidi_core)
 add_test(NAME midi_input COMMAND test_midi_input)

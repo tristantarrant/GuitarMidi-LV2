@@ -101,19 +101,19 @@
 	],[
 		a lv2:InputPort, lv2:ControlPort ;
         lv2:index 8 ;
-        lv2:symbol "onsetenthr" ;
-        lv2:name "Onset Energy Threshold (dB)" ;
-        lv2:default -18.0 ;
-        lv2:minimum -20.00 ;
-        lv2:maximum 3.00 ;
+        lv2:symbol "onsetlevel" ;
+        lv2:name "Onset Level (dBFS)" ;
+        lv2:default -66.0 ;
+        lv2:minimum -80.0 ;
+        lv2:maximum 0.0 ;
 	],[
 		a lv2:InputPort, lv2:ControlPort ;
         lv2:index 9 ;
-        lv2:symbol "offsetenthr" ;
-        lv2:name "Offset Energy Threshold (dB)" ;
-        lv2:default -18.00 ;
-        lv2:minimum -20.00 ;
-        lv2:maximum 3.00 ;
+        lv2:symbol "offsetlevel" ;
+        lv2:name "Offset Level (dBFS)" ;
+        lv2:default -66.0 ;
+        lv2:minimum -80.0 ;
+        lv2:maximum 0.0 ;
     ], [
         a lv2:OutputPort, atom:AtomPort ;
         atom:bufferType atom:Sequence ;

@@ -162,8 +162,8 @@ int main(int argc, char **argv)
     float smoothingOffset = 0.3f;
     float onsetThreshold = 0.80f;
     float offsetThreshold = 0.10f;
-    float onsetEnergy = -20.0f;
-    float offsetEnergy = -20.0f;
+    float onsetEnergy = -66.0f;
+    float offsetEnergy = -66.0f;
 
     // creatFretBoard takes ownership of the MIDI output (the note inferencer
     // deletes it), so it must live on the heap.

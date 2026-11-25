@@ -49,8 +49,8 @@ The plugin exposes several LV2 control ports to tune detection behavior. The val
 * **Offset Smoothing** — [0.0, 0.9], default `0.3`. Smooths note release detection. Higher values keep notes held longer and reduce chatter on note endings.
 * **Onset Confidence Threshold** — [0.00, 0.99], default `0.95`. Controls how confident the detector must be before sending a note-on event. Increase to reduce spurious onsets, decrease to catch softer playing.
 * **Offset Confidence Threshold** — [0.00, 0.99], default `0.30`. Controls how confident the detector must be before sending a note-off event. Increase to make notes release sooner.
-* **Onset Energy Threshold (dB)** — [-20.0, 3.0], default `-18.0`. Minimum volume required for an onset to be accepted. Increase to reduce spurious onsets of lower notes.
-* **Offset Energy Threshold (dB)** — [-20.0, 3.0], default `-18.0`. Minimum volume required to keep a note alive before releasing it.
+* **Onset Level (dBFS)** — [-80.0, 0.0], default `-66.0`. Level the note's fundamental band must reach before an onset is accepted, measured before the Input Gain (so the gain control does not change which notes pass). Raise it to reject quiet notes.
+* **Offset Level (dBFS)** — [-80.0, 0.0], default `-66.0`. A held note is released once its band falls below this level.
 
 These controls let you balance sensitivity and stability for your guitar signal and playing style.
 

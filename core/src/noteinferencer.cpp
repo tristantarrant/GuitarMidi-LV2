@@ -1,5 +1,6 @@
 #include <guitarmidi/noteinferencer.hpp>
 #include <cmath>
+#include <guitarmidi/level.hpp>
 #include <cstring>
 #include <chrono>
 #include <thread>
@@ -147,8 +148,6 @@ namespace GuitarMidi
 
         const float gain = powf(10.0f, *m_gain_db * 0.05f);
         const float expressivity = powf(10.0f, *m_expressivity_db * 0.05f);
-        const float en_threshold = pow(10, *m_onset_energy_threshold / 20) * gain;
-        const float en_threshold_offset = pow(10, *m_offset_energy_threshold / 20) * gain;
 
         bool triggeron[NUM_NOTES] = {false};
         bool triggeroff[NUM_NOTES] = {false};
@@ -189,11 +188,15 @@ namespace GuitarMidi
 
             if (!m_note_on[i].load(std::memory_order_relaxed))
             {
-                triggeron[i] = (smoothed_onsetoutput[i] > *m_onset_threshold && smoothed_noteenergies[i] > en_threshold);
+                const float onset_level = bandLevelDb(smoothed_noteenergies[i], gain, BUFFER_SIZE);
+                triggeron[i] = (smoothed_onsetoutput[i] > *m_onset_threshold &&
+                                onset_level > *m_onset_energy_threshold);
             }
             else
             {
-                triggeroff[i] = (smoothed_offsetoutput[i] < *m_offset_threshold && smoothed_offsetnoteenergies[i] < en_threshold_offset);
+                const float offset_level = bandLevelDb(smoothed_offsetnoteenergies[i], gain, BUFFER_SIZE);
+                triggeroff[i] = (smoothed_offsetoutput[i] < *m_offset_threshold &&
+                                 offset_level < *m_offset_energy_threshold);
             }
         }
         if (num_active_notes == 1) // fix for bendings in solos
