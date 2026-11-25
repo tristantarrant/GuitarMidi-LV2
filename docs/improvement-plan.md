@@ -21,7 +21,7 @@ below), so individual commits can be proposed upstream as separate PRs.
 | 1 defaults | done |
 | 2 post-processing | scale/transpose/split done; harmonic suppression and velocity-to-CC deferred (see item) |
 | 3 mono pitch bend | deferred; largest item, needs its own test with synthetic glides |
-| 4 hosting | no `exit()`, no audio-path I/O and the thread budget done; bypass, MIDI-in/panic and resampler latency outstanding |
+| 4 hosting | no `exit()`, no audio-path I/O, thread budget, MIDI-in/panic and `lv2:enabled` bypass done; resampler latency outstanding |
 | 5 velocity/thresholds | velocity from the strongest harmonic done; the dB threshold law outstanding |
 | 6 tuning/range | tuning shift done; per-string output / MPE outstanding |
 | 7 sub-hop onset placement | deferred; only pays off with a one-hop-longer schedule, so it needs a scheduling change first |
