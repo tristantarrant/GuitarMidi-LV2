@@ -1,5 +1,10 @@
 #include <guitarmidi/logging.hpp>
-// LoggerSingleton g_logger;
+
+// The process-wide logger used by the core. It lives here rather than in the
+// LV2 wrapper so the core (and anything that links it, e.g. the offline tools
+// and tests) does not depend on the plugin translation unit.
+LoggerSingleton g_logger;
+
 // call this function to start a nanosecond-resolution timer
 struct timespec timer_start(){
     struct timespec start_time;

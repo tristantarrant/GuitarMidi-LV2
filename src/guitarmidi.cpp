@@ -36,7 +36,6 @@
 #include <lv2logger.hpp>
 
 
-LoggerSingleton g_logger;
 typedef enum
 {
 	FRETBOARD_INPUT = 0,
@@ -57,8 +56,10 @@ typedef enum
 
 #ifdef WITH_AUDIO_OUTPUT
 static constexpr uint32_t DEBUG_DATA_PORT = 14;
+static constexpr uint32_t LATENCY_PORT = 15;
 #else
 static constexpr uint32_t DEBUG_DATA_PORT = 10;
+static constexpr uint32_t LATENCY_PORT = 11;
 #endif
 static constexpr uint32_t FILTER_WAVEFORM_SAMPLES = 64;
 
@@ -67,6 +68,7 @@ struct GuitarMidiPlugin
 	FretBoardAPI *fretboard;
 	LV2_Atom_Sequence *debug_output = nullptr;
 	LV2_Atom_Forge debug_forge;
+	float *latency_output = nullptr;
 	float debug_tick = 0.0f;
 	uint64_t debug_samples_since_update = 0;
 	uint64_t debug_update_interval_samples = 2400;
@@ -179,6 +181,11 @@ connect_port(LV2_Handle instance,
 		plugin->debug_output = (LV2_Atom_Sequence *)data;
 		return;
 	}
+	if (port == LATENCY_PORT)
+	{
+		plugin->latency_output = (float *)data;
+		return;
+	}
 
 	switch ((PortIndex)port)
 	{
@@ -256,6 +263,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 	timespec start = timer_start();
 #endif
 	GuitarMidiPlugin *plugin = (GuitarMidiPlugin *)instance;
+	if (plugin->latency_output)
+		*plugin->latency_output = (float)plugin->fretboard->getLatencyFrames();
 	plugin->fretboard->process(n_samples);
 	if (plugin->debug_output)
 	{

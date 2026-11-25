@@ -17,6 +17,7 @@
  * Boston, MA  02110-1301  USA
  */
 #include <guitarmidi/fretboard.hpp>
+#include <algorithm>
 #include <omp.h>
 
 using namespace GuitarMidi;
@@ -46,18 +47,15 @@ void FretBoard::setAudioInput(const float *input)
 
 bool FretBoard::initialize(const std::string &bundle_path, int samplerate, int buffer_size)
 {
-    //lv2_log_note(&g_logger, "Initializing FretBoard with samplerate %d and buffer size %d ", samplerate, buffer_size);
     g_logger.info("Initializing FretBoard with samplerate %d and buffer size %d ", samplerate, buffer_size);
     // check if the samplerate of the host is different from the native samplerate of the plugin, if so, setup the resampler
     if (samplerate != NATIVE_SAMPLERATE)
     {
-        //lv2_log_note(&g_logger, "Host samplerate %d is different from plugin samplerate %d, resampling will be performed", samplerate, NATIVE_SAMPLERATE);
         g_logger.info("Host samplerate  %d is different from plugin samplerate %d, resampling will be performed", samplerate, NATIVE_SAMPLERATE);
         m_resample_buffer_size = buffer_size;
         m_resampled_buffer = new float[m_resample_buffer_size];
         if (m_resampler.setup(samplerate, NATIVE_SAMPLERATE, 1, 16))
         {
-            //lv2_log_error(&g_logger, "Failed to setup resampler");
             g_logger.error("Failed to setup resampler");
             return false;
         }
@@ -77,7 +75,9 @@ bool FretBoard::initialize(const std::string &bundle_path, int samplerate, int b
     m_samplerate = samplerate;
     m_fretboard_rep = FretBoardRepresentation();
     m_filterbank.setup(m_fretboard_rep.get_filterrepresentations(), NATIVE_SAMPLERATE, buffer_size);
-    m_noteinferencer.setAudioInputBuffer(m_filterbank.get_buffer());
+    m_filterbank.captureFrame();
+    // The inference input is the contiguous frame, not the rolling buffer.
+    m_noteinferencer.setAudioInputBuffer(m_filterbank.get_frame_buffer());
     return m_noteinferencer.initialize(bundle_path);
 }
 
@@ -86,75 +86,95 @@ void FretBoard::finalize()
     m_noteinferencer.finalize();
 
     m_filterbank.reset();
+    m_hopFill = 0;
 }
 
 void FretBoard::process(int nsamples)
 {
     // prepare the output stream
     m_noteinferencer.preprocess();
+    m_blockSize = nsamples;
 
-    // define the processing lambda
-    auto proc=[this](int ns,int p){
+    // Drive the filter bank in chunks that end exactly on an analysis hop.
+    // That keeps the rolling filter buffer aligned (the model is never handed
+    // a rotated window) and gives every hop a real position in the block.
+    int done = 0;
+    while (done < nsamples)
+    {
         if (m_samplerate != NATIVE_SAMPLERATE)
         {
-            process_resampled(ns,p);
+            int n = nsamples - done;
+            const int budget = m_resampler.inpsize() - 1;
+            if (budget > 0 && n > budget)
+                n = budget;
+            process_resampled(n, done);
+            done += n;
         }
         else
         {
-            process_direct(ns,p);
+            const int n = std::min(nsamples - done, BUFFER_SIZE - m_hopFill);
+            process_direct(n, done);
+            done += n;
         }
-    };
-
-    // process once for realtime buffer sizes
-    if (nsamples <= BUFFER_SIZE)
-    {
-        proc(nsamples,0);
-    }
-    else
-    {
-        // non realtime, run processing in chunks of BUFFER_SIZE
-        int multiple=nsamples/BUFFER_SIZE;
-        int rest=nsamples%BUFFER_SIZE;
-
-        for (int m = 0; m < multiple; m++)
-        {
-            proc(BUFFER_SIZE,m*BUFFER_SIZE);
-        }
-        // process the rest. Some sound servers provide non log2 buffer sizes like nsamples=480 
-        // so here the fractional rest is processed
-        if(rest>0)
-            proc(rest,multiple*BUFFER_SIZE);
     }
 
     m_noteinferencer.postprocess();
 }
 
-
-
 void FretBoard::process_resampled(int nsamples,int pos)
 {
- 
-    m_resampler.inp_data=m_input_buffer+pos;// push the pointer forward when the sound servers buffersize is larger than BUFFER_SIZE
-    m_resampler.inp_count=nsamples;
-    while(m_resampler.inp_count){
+    m_resampler.inp_data = m_input_buffer + pos;
+    m_resampler.inp_count = nsamples;
+    while (m_resampler.inp_count > 0)
+    {
+        m_resampler.out_data = m_resampled_buffer;
+        m_resampler.out_count = m_resample_buffer_size;
+        const int before_in = m_resampler.inp_count;
         m_resampler.process();
-        if(m_resampler.out_count==0){
-            m_filterbank.process(m_resample_buffer_size);
-            m_noteinferencer.process(nsamples,pos);
-            m_resampler.out_data=m_resampled_buffer;
-            m_resampler.out_count=m_resample_buffer_size;
+        const int produced = m_resample_buffer_size - m_resampler.out_count;
+        const int consumed = before_in - m_resampler.inp_count;
+        if (produced > 0)
+        {
+            // The hop completed somewhere inside this input chunk; place its
+            // events there instead of at the block boundary.
+            const int eventPos = pos + std::min(nsamples - 1, consumed);
+            consumeResampled(m_resampled_buffer, produced, eventPos);
+        }
+        if (consumed == 0 && produced == 0)
+            break; // the resampler made no progress; do not spin
+    }
+}
+
+void FretBoard::consumeResampled(const float* data,int count,int eventPos)
+{
+    int off = 0;
+    while (off < count)
+    {
+        const int n = std::min(count - off, BUFFER_SIZE - m_hopFill);
+        m_filterbank.process(n, off);
+        off += n;
+        m_hopFill += n;
+        if (m_hopFill == BUFFER_SIZE)
+        {
+            m_hopFill = 0;
+            m_filterbank.captureFrame();
+            m_noteinferencer.processHop(std::min<int64_t>(m_blockSize - 1, eventPos));
         }
     }
-
-
 }
+
 void FretBoard::process_direct(int nsamples,int pos)
 {
     m_filterbank.process(nsamples,pos);
-
-    
-    m_noteinferencer.process(nsamples,pos);
-    
+    m_hopFill += nsamples;
+    if (m_hopFill >= BUFFER_SIZE)
+    {
+        m_hopFill = 0;
+        m_filterbank.captureFrame();
+        // pos + nsamples is the first sample after the analysed window; clamp
+        // to the block because an LV2 event time must be inside it.
+        m_noteinferencer.processHop(std::min<int64_t>(m_blockSize - 1, pos + nsamples));
+    }
 }
 
 void FretBoard::getFilterWaveforms(float *waveforms, uint32_t samples_per_filter) const

@@ -156,6 +156,15 @@
         lv2:index 14 ;
         lv2:symbol "debugdata" ;
         lv2:name "Note Debug Data"
+	], [
+		a lv2:OutputPort, lv2:ControlPort ;
+		lv2:index 15 ;
+		lv2:symbol "latency" ;
+		lv2:name "Latency" ;
+		lv2:designation lv2:latency ;
+		lv2:portProperty lv2:integer ;
+		lv2:minimum 0 ;
+		lv2:maximum 65535 ;
 	] .
 
 <http://github.com/geraldmwangi/GuitarMidi-LV2#ui>

@@ -17,6 +17,7 @@
  * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA  02110-1301  USA
  */
+#include <cstdint>
 #include <guitarmidi/logging.hpp>
 
 #define BUFFER_SIZE 256
@@ -29,6 +30,20 @@
 #define NUM_FRETS 12
 
 #define Q_FACTOR 6
+
+/* Scheduling delay of the inference pipeline, in analysis hops (BUFFER_SIZE
+ * frames each). A result for hop N is held until hop N + PIPELINE_LATENCY_HOPS,
+ * which turns the asynchronous detector into a fixed, host-compensatable
+ * delay instead of a stream of events that drift later under load.
+ *
+ * Total latency in frames is (1 + PIPELINE_LATENCY_HOPS) * BUFFER_SIZE: the
+ * analysis window itself plus the scheduling delay. At 48 kHz with
+ * BUFFER_SIZE = 256 and 2 hops that is 768 frames ≈ 16 ms.
+ */
+#define PIPELINE_LATENCY_HOPS 2
+/* Results older than this many hops are dropped: by then they describe audio
+ * the player has already moved past, and emitting them is worse than a hole. */
+#define MAX_RESULT_AGE_HOPS 6
 namespace GuitarMidi
 {
 
@@ -55,5 +70,27 @@ namespace GuitarMidi
     {
         int filter_id;
         float center_freq;
+    };
+
+    /*
+    * Observable state of the detection pipeline. Everything here is a counter
+    * except the inference timings, so a host or a test can tell whether the
+    * pipeline kept up with real time instead of guessing from the audio.
+    * inputDropped/outputDropped mean the bounded queues refused a frame;
+    * streamGaps counts holes the consumer noticed in the frame stamps;
+    * staleDropped counts results too old to be useful; late counts results
+    * that missed their scheduled hop but were still emitted.
+    */
+    struct NoteInferenceStats
+    {
+        uint64_t hopsProcessed = 0;
+        uint64_t inputDropped = 0;
+        uint64_t outputDropped = 0;
+        uint64_t streamGaps = 0;
+        uint64_t staleDropped = 0;
+        uint64_t late = 0;
+        uint64_t noteOns = 0;
+        double meanInferenceMs = 0.0;
+        double maxInferenceMs = 0.0;
     };
 }

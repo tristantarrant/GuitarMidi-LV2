@@ -42,6 +42,11 @@ namespace GuitarMidi{
            
             AudioBuffer2D m_filterbankbuffer; //number of filters x buffersize
             AudioBuffer2D m_filterwaveformbuffer;
+            // Contiguous copy of the rolling filter output, oldest sample first.
+            // The model must never be handed a wrapped buffer: for host block
+            // sizes that do not divide BUFFER_SIZE the raw buffer is rotated,
+            // which puts a discontinuity in the middle of the analysis window.
+            AudioBuffer2D m_framebuffer;
             //filter coefficients for the filters in the filter bank for direct form II implementation
             // Per filter, per section: biquad coefficients (a0 normalized to 1)
             float m_b0[NUM_FILTERS][NUM_SECTIONS];
@@ -77,6 +82,9 @@ namespace GuitarMidi{
                 m_filterwaveformbuffer.num_filters = NUM_FILTERS;
                 m_filterwaveformbuffer.window_size = WAVEFORM_SAMPLES;
                 m_filterwaveformbuffer.audio_buffer_2D = new float[NUM_FILTERS * m_filterwaveformbuffer.window_size];
+                m_framebuffer.num_filters = NUM_FILTERS;
+                m_framebuffer.window_size = BUFFER_SIZE;
+                m_framebuffer.audio_buffer_2D = new float[NUM_FILTERS * m_framebuffer.window_size]();
                 m_current_buffer_offset = 0;
             };
             /** Releases the filter-bank output buffer. */
@@ -84,6 +92,7 @@ namespace GuitarMidi{
                 // Free the 2D audio buffer
                 delete[] m_filterbankbuffer.audio_buffer_2D;
                 delete[] m_filterwaveformbuffer.audio_buffer_2D;
+                delete[] m_framebuffer.audio_buffer_2D;
             };
 
             /** Configures filter coefficients for the requested fretboard representation. */
@@ -108,6 +117,17 @@ namespace GuitarMidi{
             /** Returns the filter-bank output buffer. */
             AudioBuffer2D get_buffer() const{
                 return m_filterbankbuffer;
+            }
+
+            /**
+             * Copies the most recent BUFFER_SIZE output samples of every
+             * filter into a contiguous, oldest-first frame.
+             */
+            void captureFrame();
+
+            /** Returns the contiguous frame filled by captureFrame(). */
+            AudioBuffer2D get_frame_buffer() const{
+                return m_framebuffer;
             }
 
             /** Returns the signed filter responses used for waveform visualization. */

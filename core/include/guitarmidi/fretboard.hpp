@@ -55,11 +55,17 @@ private:
     float* m_input_buffer=nullptr;
     int m_resample_buffer_size=0;
     float* m_resampled_buffer=nullptr;
+    /** Samples accumulated towards the next BUFFER_SIZE analysis hop. */
+    int m_hopFill=0;
+    /** Host block size of the current process() call, for event clamping. */
+    int m_blockSize=0;
 
     /** Processes an audio block after sample-rate conversion. */
     void process_resampled(int nsamples,int pos=0);
     /** Processes an audio block at the native sample rate. */
     void process_direct(int nsamples,int pos=0);
+    /** Feeds resampled samples to the filter bank in hop-sized chunks. */
+    void consumeResampled(const float* data,int count,int eventPos=0);
 
 public:
     /**
@@ -173,6 +179,38 @@ public:
      * @param nsamples 
      */
     virtual void process(int nsamples);
+
+    /** Constant pipeline delay in frames (analysis window + scheduling). */
+    virtual uint32_t getLatencyFrames() const
+    {
+        return NoteInferencer::latencyFrames();
+    }
+
+    /** Pipeline counters and inference timings. */
+    virtual NoteInferenceStats getInferenceStats() const
+    {
+        return m_noteinferencer.getStats();
+    }
+
+    /**
+     * Testing/diagnostics hook: lower bound for one inference invocation in
+     * milliseconds. 0 disables the delay. Used by the pipeline tests to
+     * simulate a machine that cannot keep up with real time.
+     */
+    void setInferenceDelayMs(int delay_ms)
+    {
+        m_noteinferencer.setInferenceDelayMs(delay_ms);
+    }
+
+    /**
+     * Opt-in producer wait when the inference queue is full. 0 keeps the
+     * real-time policy (drop and report); a positive value is for offline
+     * rendering, where waiting keeps every note.
+     */
+    virtual void setBackpressureMs(int milliseconds)
+    {
+        m_noteinferencer.setBackpressureMs(milliseconds);
+    }
 
     /** Copies the latest smoothed and momentary note debug values. */
     virtual void getNoteDebugData(float *smoothed_confidences, float *smoothed_energies,

@@ -131,8 +131,28 @@ void FilterBank::reset()
     std::memset(m_s2, 0, sizeof(m_s2));
     std::memset(m_filterwaveformbuffer.audio_buffer_2D, 0,
                 NUM_FILTERS * WAVEFORM_SAMPLES * sizeof(float));
+    std::memset(m_framebuffer.audio_buffer_2D, 0,
+                NUM_FILTERS * BUFFER_SIZE * sizeof(float));
+    m_current_buffer_offset = 0;
     m_waveform_sample_phase = 0;
     m_waveform_capture_column = 0;
+}
+
+void FilterBank::captureFrame()
+{
+    // m_current_buffer_offset is the next write position, so it is also the
+    // oldest sample of the rolling buffer. Copy the two segments in time order
+    // so callers always see a linear window, whatever the host block size was.
+    const int offset = m_current_buffer_offset % BUFFER_SIZE;
+    for (int f = 0; f < NUM_FILTERS; ++f)
+    {
+        const float *src = m_filterbankbuffer.audio_buffer_2D + f * BUFFER_SIZE;
+        float *dst = m_framebuffer.audio_buffer_2D + f * BUFFER_SIZE;
+        const int first = BUFFER_SIZE - offset;
+        std::memcpy(dst, src + offset, first * sizeof(float));
+        if (offset > 0)
+            std::memcpy(dst + first, src, offset * sizeof(float));
+    }
 }
 
 void FilterBank::process(int nsamples,int pos)

@@ -17,135 +17,170 @@
  * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA  02110-1301  USA
  */
+#include <array>
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <guitarmidi/fretboard_api.hpp>
 #include <guitarmidi/common.hpp>
 #include <guitarmidi/config.hpp>
-#include <tensorflow/lite/version.h>
-#include "tensorflow/core/public/release_version.h"
-#include "tensorflow/core/public/version.h"
-#include "tensorflow/lite/version.h"
-#include "tensorflow/lite/core/interpreter_builder.h"
-#include "tensorflow/lite/interpreter.h"
-#include "tensorflow/lite/kernels/register.h"
-#include "tensorflow/lite/model_builder.h"
-#include "tensorflow/lite/optional_debug_tools.h"
-#include "tensorflow/lite/delegates/xnnpack/xnnpack_delegate.h"
 #include <guitarmidi/modelinferencer.hpp>
-using namespace std;
-using namespace tflite;
-namespace GuitarMidi{
+
+namespace GuitarMidi
+{
     /**
-     * Converts model note predictions into MIDI events while applying the configured thresholds and smoothing.
+     * Converts model note predictions into MIDI events.
+     *
+     * Runs on the audio thread. Once per analysis hop the caller hands it a
+     * contiguous filter-bank frame; the frame is queued for the inference
+     * thread and results are emitted on a fixed schedule:
+     *
+     *  - every result carries the hop index it was computed from,
+     *  - a result for hop N is emitted at hop N + PIPELINE_LATENCY_HOPS,
+     *    which makes the delay constant and host-compensatable (the plugin
+     *    reports it as lv2:latency) instead of "whenever inference finished",
+     *  - results that miss the schedule are still emitted and counted, results
+     *    older than MAX_RESULT_AGE_HOPS are dropped,
+     *  - a hole in the result stamps (a refused frame on either queue) flushes
+     *    all held notes and resets the smoothers, because the continuity the
+     *    thresholds rely on is gone.
      */
-    class NoteInferencer{
-       ModelInferencer m_model;
-       
-        GuitarMidiOutput* m_midioutput=nullptr;
-        AudioBuffer2D m_audiobuffer;
-        float* m_gain_db;
-        float* m_expressivity_db;
-        float* m_onset_threshold;
-        float* m_offset_threshold;
-        float* m_onset_energy_threshold;
-        float* m_offset_energy_threshold;
-        float* m_smoothing;
-        float* m_smoothing_offset;
-        float smoothed_onsetoutput[NUM_NOTES]={0};
-        float smoothed_offsetoutput[NUM_NOTES]={0};
-        float smoothed_noteenergies[NUM_NOTES]={0};
-        float smoothed_offsetnoteenergies[NUM_NOTES]={0};
-        float m_momentary_confidences[NUM_NOTES]={0};
-        float m_momentary_noteenergies[NUM_NOTES]={0};
-        // std::unique_ptr<tflite::FlatBufferModel> model;
-        //#ifdef WITH_AUDIO_OUTPUT
-        int64_t m_frames=0;
-        //#endif
+    class NoteInferencer
+    {
+        static constexpr int kMaxPending = PIPELINE_LATENCY_HOPS + 4;
+
+        struct PendingResult
+        {
+            uint64_t stamp = 0;
+            float probabilities[NUM_NOTES] = {};
+        };
+
+        ModelInferencer m_model;
+
+        GuitarMidiOutput *m_midioutput = nullptr;
+        AudioBuffer2D m_audiobuffer{};
+        float *m_gain_db = nullptr;
+        float *m_expressivity_db = nullptr;
+        float *m_onset_threshold = nullptr;
+        float *m_offset_threshold = nullptr;
+        float *m_onset_energy_threshold = nullptr;
+        float *m_offset_energy_threshold = nullptr;
+        float *m_smoothing = nullptr;
+        float *m_smoothing_offset = nullptr;
+        float smoothed_onsetoutput[NUM_NOTES] = {0};
+        float smoothed_offsetoutput[NUM_NOTES] = {0};
+        float smoothed_noteenergies[NUM_NOTES] = {0};
+        float smoothed_offsetnoteenergies[NUM_NOTES] = {0};
+        float m_momentary_confidences[NUM_NOTES] = {0};
+        float m_momentary_noteenergies[NUM_NOTES] = {0};
+
+        int m_backpressureMs = 0;
+        uint64_t m_hopsProcessed = 0;
+        uint64_t m_lastResultStamp = 0;
+        bool m_haveLastResultStamp = false;
+        uint64_t m_staleDropped = 0;
+        uint64_t m_late = 0;
+        uint64_t m_streamGaps = 0;
+        uint64_t m_noteOns = 0;
+
+        PendingResult m_pending[kMaxPending];
+        int m_pendingHead = 0;
+        int m_pendingCount = 0;
+
         std::atomic<bool> m_note_on[NUM_NOTES];
-        public:
+
+        /** Moves finished results into the pending queue and notices gaps. */
+        void drainResults(int64_t pos);
+        /** Applies the thresholds for one result and emits MIDI at `pos`. */
+        void applyResult(const float *probabilities, int64_t pos);
+        /** Emits the results whose scheduled hop has arrived. */
+        void emitDueResults(int64_t pos);
+        /** Releases every held note and clears the smoothing state. */
+        void flushHeldNotes(int64_t pos);
+
+    public:
         /** Creates a note inferencer connected to the supplied MIDI output. */
         NoteInferencer(GuitarMidiOutput *midioutput);
         /** Releases the MIDI output owned by the inferencer. */
-        ~NoteInferencer(){
-            if(m_midioutput!=nullptr)
+        ~NoteInferencer()
+        {
+            if (m_midioutput != nullptr)
                 delete m_midioutput;
         }
 
         /** Loads and initializes the neural-network model. */
-        bool initialize(const std::string& bundle_path);
+        bool initialize(const std::string &bundle_path);
         /** Finalizes model inference and releases inference resources. */
         void finalize();
         /** Returns the MIDI output used for inferred notes. */
-        GuitarMidiOutput* getMidiOutput()
-        {
-            return m_midioutput;
-        }
-        /** Sets the filter-bank buffer consumed by inference. */
-        void setAudioInputBuffer(AudioBuffer2D input);
+        GuitarMidiOutput *getMidiOutput() { return m_midioutput; }
+        /** Sets the contiguous filter-bank frame consumed by inference. */
+        void setAudioInputBuffer(AudioBuffer2D input) { m_audiobuffer = input; }
 
         /** Sets the gain control. */
-        void setGain(float* gain){
-            m_gain_db=gain;
-        }
+        void setGain(float *gain) { m_gain_db = gain; }
         /** Sets the MIDI expressivity control. */
-        void setExpressivity(float* expressivity){
-            m_expressivity_db=expressivity;
-        }
+        void setExpressivity(float *expressivity) { m_expressivity_db = expressivity; }
         /** Sets the note-on threshold control. */
-        void setOnsetThreshold(float* threshold){
-            m_onset_threshold=threshold;
-        }
-
+        void setOnsetThreshold(float *threshold) { m_onset_threshold = threshold; }
         /** Sets the note-off threshold control. */
-        void setOffsetThreshold(float* threshold){
-            m_offset_threshold=threshold;
-        }
-
+        void setOffsetThreshold(float *threshold) { m_offset_threshold = threshold; }
         /** Sets the onset smoothing control. */
-        void setSmoothing(float* smoothing){
-            m_smoothing=smoothing;
-        }
-
+        void setSmoothing(float *smoothing) { m_smoothing = smoothing; }
         /** Sets the offset smoothing control. */
-        void setSmoothingOffset(float* smoothing_offset){
-            m_smoothing_offset=smoothing_offset;
-        }
-
+        void setSmoothingOffset(float *smoothing_offset) { m_smoothing_offset = smoothing_offset; }
         /** Sets the note-on energy threshold control. */
-        void setOnsetEnergyThreshold(float* threshold){
-            m_onset_energy_threshold=threshold;
-        }
+        void setOnsetEnergyThreshold(float *threshold) { m_onset_energy_threshold = threshold; }
         /** Sets the note-off energy threshold control. */
-        void setOffsetEnergyThreshold(float* threshold){
-            m_offset_energy_threshold=threshold;
+        void setOffsetEnergyThreshold(float *threshold) { m_offset_energy_threshold = threshold; }
+
+        /** Testing/diagnostics hook: lower bound for one inference, in ms. */
+        void setInferenceDelayMs(int delay_ms) { m_model.setInferenceDelayMs(delay_ms); }
+        /** Opt-in producer wait for room (offline rendering); 0 = never wait. */
+        void setBackpressureMs(int milliseconds)
+        {
+            m_backpressureMs = milliseconds;
+            m_model.setBackpressureMs(milliseconds);
         }
 
         /** Starts a MIDI output sequence before processing a block. */
-        void preprocess(){
-            if(m_midioutput)
+        void preprocess()        {
+            if (m_midioutput)
                 m_midioutput->initializeSequence();
         }
 
         /** Completes a MIDI output sequence after processing a block. */
-        void postprocess(){
-            if(m_midioutput)
+        void postprocess()
+        {
+            if (m_midioutput)
                 m_midioutput->finalizeSequence();
         }
-        /** Converts model predictions for an audio block into MIDI events. */
-        void process(int nsamples,int pos=0);
+
+        /**
+         * Called once per completed analysis hop, after the filter bank has
+         * captured a contiguous frame. `pos` is the frame offset within the
+         * host block at which that hop ended.
+         */
+        void processHop(int64_t pos);
+
+        /** Constant pipeline delay in frames, including the analysis window. */
+        static constexpr uint32_t latencyFrames()
+        {
+            return (1 + PIPELINE_LATENCY_HOPS) * BUFFER_SIZE;
+        }
 
         /** Copies the latest smoothed and momentary confidence and energy values. */
         void getDebugData(float *smoothed_confidences, float *smoothed_energies,
-                  float *momentary_confidences, float *momentary_energies,
-                  bool *note_on = nullptr) const;
+                          float *momentary_confidences, float *momentary_energies,
+                          bool *note_on = nullptr) const;
+
+        /** Pipeline counters and inference timings. */
+        NoteInferenceStats getStats() const;
 
 #ifdef WITH_AUDIO_OUTPUT
         float *audio_output;
         /** Sets the optional audio output buffer. */
-        void setAudioOutputBuffer(float* output){
-            audio_output=output;
-        }
+        void setAudioOutputBuffer(float *output) { audio_output = output; }
 #endif
     };
-}
+} // namespace GuitarMidi

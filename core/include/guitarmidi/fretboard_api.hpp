@@ -130,6 +130,19 @@ public:
      */
     virtual void process(int nsamples) = 0;
 
+    /** Constant pipeline delay in frames, for the host's latency compensation. */
+    virtual uint32_t getLatencyFrames() const = 0;
+
+    /** Pipeline counters and inference timings. */
+    virtual GuitarMidi::NoteInferenceStats getInferenceStats() const = 0;
+
+    /**
+     * Opt-in producer wait when the inference queue is full, in milliseconds.
+     * 0 is the real-time policy (drop the frame and report the gap); a
+     * positive value is for offline rendering, where waiting keeps every note.
+     */
+    virtual void setBackpressureMs(int milliseconds) = 0;
+
     /** Copies the latest smoothed and momentary note confidence and energy values. */
     virtual void getNoteDebugData(float *smoothed_confidences, float *smoothed_energies,
                                   float *momentary_confidences, float *momentary_energies,
