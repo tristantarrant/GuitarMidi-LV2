@@ -279,6 +279,7 @@ namespace GuitarMidi
         stats.late = m_late;
         stats.noteOns = m_noteOns;
         stats.notesFiltered = m_notesFiltered;
+        stats.invokeFailures = m_model.invokeFailures();
         stats.meanInferenceMs = m_model.meanInferenceMs();
         stats.maxInferenceMs = m_model.maxInferenceMs();
         return stats;

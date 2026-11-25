@@ -72,6 +72,9 @@ namespace GuitarMidi
         float smoothed_offsetoutput[NUM_NOTES] = {0};
         float smoothed_noteenergies[NUM_NOTES] = {0};
         float smoothed_offsetnoteenergies[NUM_NOTES] = {0};
+        // Velocity follows the strongest harmonic band, not just the
+        // fundamental; kept separate so the gate behaviour is unchanged.
+        float smoothed_velocityenergies[NUM_NOTES] = {0};
         float m_momentary_confidences[NUM_NOTES] = {0};
         float m_momentary_noteenergies[NUM_NOTES] = {0};
 

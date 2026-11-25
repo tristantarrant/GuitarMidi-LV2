@@ -76,6 +76,7 @@ private:
     std::atomic<uint64_t> m_infer_count{0};
     std::atomic<int> m_inference_delay_ms{0};
     std::atomic<int> m_backpressure_ms{0};
+    std::atomic<uint64_t> m_invoke_failures{0};
 
     /** Runs model inference on frames received from the audio thread. */
     void inferencing_loop(const std::string &bundle_path);
@@ -105,6 +106,7 @@ public:
     bool get_model_output(float *output, uint64_t &stamp);
 
     uint64_t inputDropped() const { return m_input_queue.dropped(); }
+    uint64_t invokeFailures() const;
     uint64_t outputDropped() const { return m_output_queue.dropped(); }
 
     /** Mean/max wall time of one interpreter invocation, in milliseconds. */

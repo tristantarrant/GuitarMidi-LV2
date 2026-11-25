@@ -6,12 +6,9 @@
 #include <tensorflow/lite/logger.h>
 
 // TFlite C++ API reference: https://ai.google.dev/edge/api/tflite/cc?hl=en
-#define TFLITE_MINIMAL_CHECK(x)                                  \
-    if (!(x))                                                    \
-    {                                                            \
-        fprintf(stderr, "Error at %s:%d\n", __FILE__, __LINE__); \
-        exit(1);                                                 \
-    }
+//
+// This is a plugin: a failure here must disable detection, never terminate the
+// host process. Every check below reports and returns instead of exiting.
 
 namespace GuitarMidi
 {
@@ -51,7 +48,15 @@ namespace GuitarMidi
 
             const int artificial_delay = m_inference_delay_ms.load(std::memory_order_relaxed);
             const auto begin = std::chrono::steady_clock::now();
-            TFLITE_MINIMAL_CHECK(m_interpreter->Invoke() == kTfLiteOk);
+            if (m_interpreter->Invoke() != kTfLiteOk)
+            {
+                // Skipping the result leaves a hole in the stamp stream, which
+                // the audio thread turns into a note flush. Keep going: one bad
+                // frame must not take the instrument down.
+                m_invoke_failures.fetch_add(1, std::memory_order_relaxed);
+                g_logger.error("Inference invocation failed; dropping frame\n");
+                continue;
+            }
             const auto end = std::chrono::steady_clock::now();
             const uint64_t elapsed_us =
                 static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count());
@@ -90,14 +95,33 @@ namespace GuitarMidi
             return false;
         }
         m_model = FlatBufferModel::BuildFromFile(tflite_path.c_str());
-        TFLITE_MINIMAL_CHECK(m_model != nullptr);
+        if (m_model == nullptr)
+        {
+            g_logger.error("Could not load the model file\n");
+            return false;
+        }
         ops::builtin::BuiltinOpResolver resolver;
         InterpreterBuilder builder(*m_model, resolver);
 
         builder(&m_interpreter);
+        if (m_interpreter == nullptr)
+        {
+            g_logger.error("Could not build the interpreter\n");
+            return false;
+        }
         TfLiteXNNPackDelegateOptions xnnpack_options =
             TfLiteXNNPackDelegateOptionsDefault();
-        xnnpack_options.num_threads = NUM_INFERENCE_THREADS;
+        // NUM_INFERENCE_THREADS == 0 means "auto": leave at least one core for
+        // the audio thread, and do not spawn a crowd on a big desktop either.
+        unsigned threads = NUM_INFERENCE_THREADS;
+        if (threads == 0)
+        {
+            const unsigned hw = std::thread::hardware_concurrency();
+            threads = hw > 2 ? hw - 1 : 1;
+            if (threads > 4)
+                threads = 4;
+        }
+        xnnpack_options.num_threads = static_cast<int>(threads);
         xnnpack_options.weight_cache_file_path = TfLiteXNNPackDelegateInMemoryFilePath();
 
         if (m_interpreter->ModifyGraphWithDelegate(
@@ -106,10 +130,14 @@ namespace GuitarMidi
             g_logger.error("Failed to apply XNNPack delegate\n");
             return false;
         }
-        TFLITE_MINIMAL_CHECK(m_interpreter->AllocateTensors() == kTfLiteOk);
+        if (m_interpreter->AllocateTensors() != kTfLiteOk)
+        {
+            g_logger.error("Could not allocate tensors\n");
+            return false;
+        }
         tflite::LoggerOptions::SetMinimumLogSeverity(tflite::TFLITE_LOG_ERROR);
         g_logger.info("Model loaded and interpreter initialized successfully.\n");
-        g_logger.info("Inference thread count: %d\n", NUM_INFERENCE_THREADS);
+        g_logger.info("Inference thread count: %d\n", static_cast<int>(threads));
         g_logger.info("Ring buffer size: %d frames\n", RING_BUFFER_SIZE);
         return true;
     }
@@ -185,6 +213,11 @@ namespace GuitarMidi
     bool ModelInferencer::get_model_output(float *output, uint64_t &stamp)
     {
         return m_output_queue.pop(output, stamp);
+    }
+
+    uint64_t ModelInferencer::invokeFailures() const
+    {
+        return m_invoke_failures.load(std::memory_order_relaxed);
     }
 
     double ModelInferencer::meanInferenceMs() const

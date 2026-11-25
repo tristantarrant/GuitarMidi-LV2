@@ -7,7 +7,7 @@ project("GuitarMidi-Core")
 option(WITH_TRACING_INFO "Build with tracing logs" OFF)
 option(WITH_AUDIO_OUTPUT "Build with audio output support" OFF)
 set(RING_BUFFER_SIZE "8" CACHE STRING "Number of frames to store in the ring buffer") 
-set(NUM_INFERENCE_THREADS "4" CACHE STRING "Number of threads to use for inference")
+set(NUM_INFERENCE_THREADS "0" CACHE STRING "Number of threads to use for inference (0 = automatic: cores - 1, capped at 4)")
 
 message("Ring buffer size: ${RING_BUFFER_SIZE}")
 message("Number of inference threads: ${NUM_INFERENCE_THREADS}")

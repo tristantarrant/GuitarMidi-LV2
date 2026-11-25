@@ -36,21 +36,15 @@ bool MidiOutputLV2::forge_midimessage(const uint8_t *const buffer,
     midiatom.type = m_midiEvent;
     midiatom.size = size;
 
+    // Forge failures mean the output sequence is full. That is a host
+    // situation on the audio thread, so report it by returning false rather
+    // than doing I/O here.
     if (0 == lv2_atom_forge_frame_time(&m_forge, frames))
-    {
-        printf("0 == lv2_atom_forge_frame_time\n");
         return false;
-    }
     if (0 == lv2_atom_forge_raw(&m_forge, &midiatom, sizeof(LV2_Atom)))
-    {
-        printf("0==lv2_atom_forge_raw(&m_forge, &midiatom, sizeof(LV2_Atom)\n");
         return false;
-    }
     if (0 == lv2_atom_forge_raw(&m_forge, buffer, size * sizeof(uint8_t)))
-    {
-        printf("0 == lv2_atom_forge_raw(&m_forge, buffer, size*sizeof(uint8_t))\n");
         return false;
-    }
     lv2_atom_forge_pad(&m_forge, size * sizeof(uint8_t) + sizeof(LV2_Atom));
     // lv2_atom_forge_frame_time(&m_forge, frames);
     // lv2_atom_forge_raw(&m_forge, &midiatom, sizeof(LV2_Atom));
@@ -91,10 +85,6 @@ void MidiOutputLV2::finalizeSequence()
 void MidiOutputLV2::sendMidiMessage(uint8_t midinote[3], int64_t frames)
 {
 
-    bool messagesent = false;
-    for (int i = 0; i < 1 && !messagesent; i++)
-        messagesent = forge_midimessage(midinote, 3, frames);
-    if (!messagesent)
-        printf("Failed to send midinote (%d,%d,%d)\n", midinote[0], midinote[1], midinote[2]);
-    
+    forge_midimessage(midinote, 3, frames);
+
 }

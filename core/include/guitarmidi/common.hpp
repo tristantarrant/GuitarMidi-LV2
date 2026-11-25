@@ -91,6 +91,7 @@ namespace GuitarMidi
         uint64_t late = 0;
         uint64_t noteOns = 0;
         uint64_t notesFiltered = 0;
+        uint64_t invokeFailures = 0;
         double meanInferenceMs = 0.0;
         double maxInferenceMs = 0.0;
     };
