@@ -74,7 +74,9 @@ bool FretBoard::initialize(const std::string &bundle_path, int samplerate, int b
     // setup the filterbank with the filter representations from the fretboard representation
     m_samplerate = samplerate;
     m_fretboard_rep = FretBoardRepresentation();
-    m_filterbank.setup(m_fretboard_rep.get_filterrepresentations(), NATIVE_SAMPLERATE, buffer_size);
+    m_filters = m_fretboard_rep.get_filterrepresentations();
+    m_filterbank.setup(m_filters, NATIVE_SAMPLERATE, buffer_size, m_tuning);
+    m_appliedTuning = m_tuning;
     m_filterbank.captureFrame();
     // The inference input is the contiguous frame, not the rolling buffer.
     m_noteinferencer.setAudioInputBuffer(m_filterbank.get_frame_buffer());
@@ -94,6 +96,15 @@ void FretBoard::process(int nsamples)
     // prepare the output stream
     m_noteinferencer.preprocess();
     m_blockSize = nsamples;
+
+    // A tuning change means new biquad coefficients. Do it here (not on the
+    // host thread), once, and start from a clean filter state.
+    if (m_tuning != m_appliedTuning)
+    {
+        m_filterbank.setup(m_filters, NATIVE_SAMPLERATE, 0, m_tuning);
+        m_appliedTuning = m_tuning;
+        m_hopFill = 0;
+    }
 
     // Drive the filter bank in chunks that end exactly on an analysis hop.
     // That keeps the rolling filter buffer aligned (the model is never handed

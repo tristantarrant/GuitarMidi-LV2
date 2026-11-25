@@ -210,7 +210,7 @@ namespace GuitarMidi
         {
             if (triggeron[i])
             {
-                const NotePostResult post = postProcessNote(m_post, i + NOTE_OFFSET);
+                const NotePostResult post = postProcessNote(m_post, i + NOTE_OFFSET + m_tuningOffset);
                 if (!post.keep)
                 {
                     // Out of scale or out of MIDI range: no note, and no note

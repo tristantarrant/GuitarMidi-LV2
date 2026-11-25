@@ -92,6 +92,7 @@ namespace GuitarMidi
         // pitch/channel each tracked note was actually emitted on, so note-offs
         // match even if the settings changed while it was held.
         NotePostSettings m_post;
+        int m_tuningOffset = 0;
         int m_emittedPitch[NUM_NOTES] = {};
         int m_emittedChannel[NUM_NOTES] = {};
 
@@ -145,6 +146,9 @@ namespace GuitarMidi
         void setOnsetEnergyThreshold(float *threshold) { m_onset_energy_threshold = threshold; }
         /** Sets the note-off energy threshold control. */
         void setOffsetEnergyThreshold(float *threshold) { m_offset_energy_threshold = threshold; }
+
+        /** Guitar tuning offset: the detected note is reported this much lower. */
+        void setTuningOffset(int semitones) { m_tuningOffset = semitones; }
 
         /** Note post-processing: scale, root, transpose and channel routing. */
         void setScale(int scale) { m_post.scale = scale; }

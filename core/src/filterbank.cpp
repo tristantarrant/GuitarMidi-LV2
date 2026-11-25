@@ -2,6 +2,7 @@
 #include <guitarmidi/filterbank.hpp>
 #include <complex>
 #include <cmath>
+#include <cmath>
 #include <cstring>
 
 #ifndef M_PI
@@ -106,15 +107,16 @@ static void design_butterworth_bandpass_N2(
 
 // Design and process a 4th-order Butterworth bandpass filter using Transposed Direct Form II.
 
-void FilterBank::setup(std::map<unsigned, FilterRepresentation> filterreps,
-                       int samplerate, int hostbuffer_size)
+void FilterBank::setup(const std::map<unsigned, FilterRepresentation> &filterreps,
+                       int samplerate, int hostbuffer_size, int tuningSemitones)
 {
     m_hostbuffer_size = hostbuffer_size;
+    const double tuning = std::pow(2.0, tuningSemitones / 12.0);
 
     for (auto &kv : filterreps)
     {
         const int fid = kv.second.filter_id;
-        const double fc = kv.second.center_freq;
+        const double fc = kv.second.center_freq * tuning;
         const double bw = fc / Q_FACTOR;
 
         design_butterworth_bandpass_N2(

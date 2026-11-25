@@ -93,6 +93,8 @@ public:
     virtual void setOnsetEnergyThreshold(float *threshold) = 0;
     /** Sets the note-off energy threshold control. */
     virtual void setOffsetEnergyThreshold(float *threshold) = 0;
+    /** Shift the analysis by this many semitones (guitar tuning offset). */
+    virtual void setTuning(int semitones) = 0;
     /** Note post-processing: keep notes in this scale (0 = off). */
     virtual void setScale(int scale) = 0;
     /** Scale root, 0 = C. */

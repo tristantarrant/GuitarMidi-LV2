@@ -15,6 +15,7 @@
 #include <guitarmidi/filterbank.hpp>
 #include <guitarmidi/fretboardrepresentation.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -54,6 +55,85 @@ std::vector<float> copyFrame(const GuitarMidi::FilterBank &bank)
     const GuitarMidi::AudioBuffer2D frame = bank.get_frame_buffer();
     const int count = frame.num_filters * frame.window_size;
     return std::vector<float>(frame.audio_buffer_2D, frame.audio_buffer_2D + count);
+}
+
+/* A tuning shift must make a detuned string look like a standard-tuned one:
+ * 196 Hz analysed with -2 semitones has to land where 220 Hz lands at 0. */
+void testTuningShift()
+{
+    constexpr int kSamples = 24000;
+    std::vector<float> low(static_cast<size_t>(kSamples));
+    std::vector<float> high(static_cast<size_t>(kSamples));
+    for (int i = 0; i < kSamples; ++i)
+    {
+        const double t = static_cast<double>(i) / 48000.0;
+        low[i] = static_cast<float>(0.3 * std::sin(2.0 * M_PI * 196.0 * t));
+        high[i] = static_cast<float>(0.3 * std::sin(2.0 * M_PI * 220.0 * t));
+    }
+
+    GuitarMidi::FretBoardRepresentation representation;
+    const auto filters = representation.get_filterrepresentations();
+    float gainDb = 0.0f;
+
+    GuitarMidi::FilterBank detuned;
+    detuned.setup(filters, 48000, BUFFER_SIZE, -2);
+    detuned.setGain(&gainDb);
+    detuned.setInput(low.data());
+
+    GuitarMidi::FilterBank reference;
+    reference.setup(filters, 48000, BUFFER_SIZE, 0);
+    reference.setGain(&gainDb);
+    reference.setInput(high.data());
+
+    for (int offset = 0; offset + BUFFER_SIZE <= kSamples; offset += BUFFER_SIZE)
+    {
+        detuned.process(BUFFER_SIZE, offset);
+        reference.process(BUFFER_SIZE, offset);
+    }
+    detuned.captureFrame();
+    reference.captureFrame();
+
+    // Compare per-band energies rather than samples: the detector consumes
+    // rectified energies, and a tiny coefficient difference would otherwise
+    // show up as a phase error.
+    const std::vector<float> a = copyFrame(detuned);
+    const std::vector<float> b = copyFrame(reference);
+    std::vector<float> rowA(NUM_FILTERS, 0.0f);
+    std::vector<float> rowB(NUM_FILTERS, 0.0f);
+    for (int f = 0; f < NUM_FILTERS; ++f)
+        for (int w = 0; w < BUFFER_SIZE; ++w)
+        {
+            rowA[f] += a[f * BUFFER_SIZE + w];
+            rowB[f] += b[f * BUFFER_SIZE + w];
+        }
+
+    const float maxB = *std::max_element(rowB.begin(), rowB.end());
+    CHECK(maxB > 0.0f);
+    // Every band that carries real energy must land in the same place. Bands
+    // that are effectively silent are not compared: there the two designs
+    // differ by more than the signal itself.
+    int compared = 0;
+    float worst = 0.0f;
+    for (int f = 0; f < NUM_FILTERS; ++f)
+    {
+        if (rowB[f] < 0.05f * maxB)
+            continue;
+        ++compared;
+        worst = std::max(worst, std::fabs(rowA[f] - rowB[f]) / rowB[f]);
+    }
+    CHECK(compared >= 2);
+    // 15 %: the bilinear transform warps frequency, so a shifted design is not
+    // an exact copy. What matters is that the energy lands in the same bands.
+    CHECK(worst < 0.15f);
+
+    float totalA = 0.0f;
+    float totalB = 0.0f;
+    for (int f = 0; f < NUM_FILTERS; ++f)
+    {
+        totalA += rowA[f];
+        totalB += rowB[f];
+    }
+    CHECK(std::fabs(totalA - totalB) < 0.02f * totalB);
 }
 
 } // namespace
@@ -124,6 +204,8 @@ int main()
     const std::vector<float> zeroFrame = copyFrame(silent);
     for (float value : zeroFrame)
         CHECK(value == 0.0f);
+
+    testTuningShift();
 
     if (failures == 0)
         std::printf("test_filterbank_frame: OK (%zu hops compared)\n", reference.size());

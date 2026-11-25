@@ -45,6 +45,9 @@ private:
    
 
     GuitarMidi::FretBoardRepresentation m_fretboard_rep;
+    std::map<unsigned, FilterRepresentation> m_filters;
+    int m_tuning = 0;
+    int m_appliedTuning = 0;
 
 
 
@@ -128,6 +131,11 @@ public:
     virtual void setOffsetEnergyThreshold(float* threshold){
         m_noteinferencer.setOffsetEnergyThreshold(threshold);
     }  
+    /** Detune the analysis by this many semitones (caps the guitar's tuning). */
+    virtual void setTuning(int semitones){
+        m_tuning = semitones;
+        m_noteinferencer.setTuningOffset(semitones);
+    }
     virtual void setScale(int scale){ m_noteinferencer.setScale(scale); }
     virtual void setScaleRoot(int root){ m_noteinferencer.setScaleRoot(root); }
     virtual void setTranspose(int semitones){ m_noteinferencer.setTranspose(semitones); }

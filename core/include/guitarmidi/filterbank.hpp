@@ -95,8 +95,14 @@ namespace GuitarMidi{
                 delete[] m_framebuffer.audio_buffer_2D;
             };
 
-            /** Configures filter coefficients for the requested fretboard representation. */
-            void setup(map<uint,FilterRepresentation> filterreps,int samplerate,int hostbuffer_size);
+            /**
+             * Configures the filter coefficients for the fretboard
+             * representation. `tuningSemitones` shifts every centre frequency,
+             * which lets the model analyse a detuned or capoed guitar as if it
+             * were in standard tuning.
+             */
+            void setup(const map<uint,FilterRepresentation>& filterreps,int samplerate,
+                       int hostbuffer_size,int tuningSemitones=0);
             /** Sets the filter-bank gain control. */
             void setGain(float* gain_db){
                 m_gain_db = gain_db;

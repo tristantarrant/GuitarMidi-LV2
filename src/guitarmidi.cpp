@@ -72,6 +72,7 @@ enum NoteFilterPort
 	NOTE_FILTER_SPLIT,
 	NOTE_FILTER_LOW_CHANNEL,
 	NOTE_FILTER_HIGH_CHANNEL,
+	NOTE_FILTER_TUNING,
 	NOTE_FILTER_COUNT
 };
 static constexpr uint32_t FILTER_WAVEFORM_SAMPLES = 64;
@@ -220,6 +221,9 @@ connect_port(LV2_Handle instance,
 			break;
 		case NOTE_FILTER_HIGH_CHANNEL:
 			fretboard->setHighChannel((int)*(float *)data);
+			break;
+		case NOTE_FILTER_TUNING:
+			fretboard->setTuning((int)*(float *)data);
 			break;
 		default:
 			break;
