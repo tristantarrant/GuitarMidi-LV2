@@ -44,6 +44,7 @@ namespace GuitarMidi
             smoothed_offsetoutput[i] = 0.0f;
             smoothed_noteenergies[i] = 0.0f;
             smoothed_offsetnoteenergies[i] = 0.0f;
+            smoothed_velocityenergies[i] = 0.0f;
             m_momentary_confidences[i] = 0.0f;
             m_momentary_noteenergies[i] = 0.0f;
         }
@@ -114,6 +115,23 @@ namespace GuitarMidi
         }
     }
 
+    namespace
+    {
+        // Total rectified output of one band over the analysis frame. The
+        // frame holds NUM_HARMONICS bands per note, oldest sample first.
+        float bandEnergy(const AudioBuffer2D &frame, int note, int harmonic)
+        {
+            const int index = note * NUM_HARMONICS + harmonic;
+            if (index < 0 || index >= NUM_HARMONICS * NUM_NOTES)
+                return 0.0f;
+            const float *band = frame.audio_buffer_2D + index * BUFFER_SIZE;
+            float sum = 0.0f;
+            for (int w = 0; w < BUFFER_SIZE; ++w)
+                sum += band[w];
+            return sum;
+        }
+    } // namespace
+
     void NoteInferencer::applyResult(const float *output_data, int64_t pos)
     {
         if (!m_gain_db || !m_expressivity_db || !m_smoothing || !m_smoothing_offset ||
@@ -134,36 +152,37 @@ namespace GuitarMidi
         bool triggeroff[NUM_NOTES] = {false};
         for (int i = 0; i < NUM_NOTES; i++)
         {
-            // check if all harmonics of the note are active before sending note on message
-            float note_energy = 0;
-            int h = 1; // for (int h = 1; h <= NUM_HARMONICS; h++)
+            // Gating keeps using the fundamental band, so the documented
+            // threshold behaviour is unchanged. Velocity follows the strongest
+            // harmonic instead: a neck pickup or a dark tone can leave the
+            // fundamental weak while the note is perfectly loud.
+            const float gate_energy = bandEnergy(m_audiobuffer, i, 0);
+            float note_energy = gate_energy;
+            for (int h = 1; h < NUM_HARMONICS; ++h)
             {
-                int harmonic_index = i * NUM_HARMONICS + h - 1;
-                if (harmonic_index < NUM_HARMONICS * NUM_NOTES)
-                {
-                    float harmonicenergy = 0;
-                    for (int w = 0; w < BUFFER_SIZE; w++)
-                    {
-                        harmonicenergy += m_audiobuffer.audio_buffer_2D[harmonic_index * BUFFER_SIZE + w];
-                    }
-                    note_energy += harmonicenergy;
-                }
+                const float harmonic_energy = bandEnergy(m_audiobuffer, i, h);
+                if (harmonic_energy > note_energy)
+                    note_energy = harmonic_energy;
             }
 
             m_momentary_confidences[i] = output_data[i];
             m_momentary_noteenergies[i] = note_energy;
 
+            smoothed_velocityenergies[i] = *m_smoothing * smoothed_velocityenergies[i] +
+                                           (1 - *m_smoothing) * note_energy *
+                                               (num_active_notes == 1 ? output_data[i] : 1.0f);
+
             smoothed_onsetoutput[i] = *m_smoothing * smoothed_onsetoutput[i] + (1 - *m_smoothing) * output_data[i]; // simple low pass filter to smooth the output and reduce jitter
             smoothed_offsetoutput[i] = *m_smoothing_offset * smoothed_offsetoutput[i] + (1 - *m_smoothing_offset) * output_data[i];
             if (num_active_notes == 1)
             {
-                smoothed_noteenergies[i] = *m_smoothing * smoothed_noteenergies[i] + (1 - *m_smoothing) * note_energy * output_data[i];
-                smoothed_offsetnoteenergies[i] = *m_smoothing_offset * smoothed_offsetnoteenergies[i] + (1 - *m_smoothing_offset) * note_energy * output_data[i];
+                smoothed_noteenergies[i] = *m_smoothing * smoothed_noteenergies[i] + (1 - *m_smoothing) * gate_energy * output_data[i];
+                smoothed_offsetnoteenergies[i] = *m_smoothing_offset * smoothed_offsetnoteenergies[i] + (1 - *m_smoothing_offset) * gate_energy * output_data[i];
             }
             else
             {
-                smoothed_noteenergies[i] = *m_smoothing * smoothed_noteenergies[i] + (1 - *m_smoothing) * note_energy;
-                smoothed_offsetnoteenergies[i] = *m_smoothing_offset * smoothed_offsetnoteenergies[i] + (1 - *m_smoothing_offset) * note_energy;
+                smoothed_noteenergies[i] = *m_smoothing * smoothed_noteenergies[i] + (1 - *m_smoothing) * gate_energy;
+                smoothed_offsetnoteenergies[i] = *m_smoothing_offset * smoothed_offsetnoteenergies[i] + (1 - *m_smoothing_offset) * gate_energy;
             }
 
             if (!m_note_on[i].load(std::memory_order_relaxed))
@@ -199,7 +218,7 @@ namespace GuitarMidi
                     ++m_notesFiltered;
                     continue;
                 }
-                int velocity = (int)(smoothed_noteenergies[i] / (gain * expressivity) * 127);
+                int velocity = (int)(smoothed_velocityenergies[i] / (gain * expressivity) * 127);
                 velocity = std::min(velocity, 127); // cap the velocity at 127
                 uint8_t midinote[3] = {static_cast<uint8_t>(0x90 | (post.channel - 1)),
                                        static_cast<uint8_t>(post.pitch),
