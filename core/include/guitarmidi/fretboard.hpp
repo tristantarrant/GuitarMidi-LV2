@@ -144,6 +144,7 @@ public:
     virtual void setSplitNote(int pitch){ m_noteinferencer.setSplitNote(pitch); }
     virtual void setLowChannel(int channel){ m_noteinferencer.setLowChannel(channel); }
     virtual void setHighChannel(int channel){ m_noteinferencer.setHighChannel(channel); }
+    virtual void setMpe(int enabled){ m_noteinferencer.setMpe(enabled); }
 
     /** Sets the filter and inference gain control. */
     virtual void setGain(float* gain_db){

@@ -8,6 +8,9 @@ add_test(NAME ringbuffer COMMAND test_ringbuffer)
 add_executable(test_postprocess test_postprocess.cpp)
 add_test(NAME postprocess COMMAND test_postprocess)
 
+add_executable(test_mpe test_mpe.cpp)
+add_test(NAME mpe COMMAND test_mpe)
+
 add_executable(test_level test_level.cpp)
 add_test(NAME level COMMAND test_level)
 

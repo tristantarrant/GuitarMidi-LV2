@@ -23,7 +23,7 @@ below), so individual commits can be proposed upstream as separate PRs.
 | 3 mono pitch bend | deferred; largest item, needs its own test with synthetic glides |
 | 4 hosting | no `exit()`, no audio-path I/O, thread budget, MIDI-in/panic and `lv2:enabled` bypass done; resampler latency outstanding |
 | 5 velocity/thresholds | done: velocity from the strongest harmonic, thresholds now in dBFS |
-| 6 tuning/range | tuning shift done; per-string output / MPE outstanding |
+| 6 tuning/range | tuning shift and MPE routing done; per-string output needs a model re-export |
 | 7 sub-hop onset placement | deferred; only pays off with a one-hop-longer schedule, so it needs a scheduling change first |
 
 ## Priority summary
@@ -168,6 +168,14 @@ threshold admits/rejects the same signal level.
   combinations) would allow a per-string MIDI channel, which combined with
   item 3 gives per-note bends — the MPE behaviour the comparison notes
   Stringler only partially has.
+
+  State: the MPE half is implemented (`mpe` port, member channels 2..16).
+  The per-string half needs the model exported with its `string_combined`
+  tensor (256x78) as an additional output. The graph already computes it -
+  `python/neuralnetmodelling/model.py` scatters it into
+  `sparse_guitar_output` - so this is an export change, not a retrain, but
+  it does change the shipped model artifact and the inference output
+  format.
 
 ## 7. Sub-hop onset placement
 

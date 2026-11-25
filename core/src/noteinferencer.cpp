@@ -40,6 +40,7 @@ namespace GuitarMidi
                 if (m_midioutput)
                     m_midioutput->sendMidiMessage(midinote, pos);
                 m_note_on[i].store(false, std::memory_order_relaxed);
+                releaseChannel(i);
             }
             smoothed_onsetoutput[i] = 0.0f;
             smoothed_offsetoutput[i] = 0.0f;
@@ -225,13 +226,14 @@ namespace GuitarMidi
                 }
                 int velocity = (int)(smoothed_velocityenergies[i] / (gain * expressivity) * 127);
                 velocity = std::min(velocity, 127); // cap the velocity at 127
-                uint8_t midinote[3] = {static_cast<uint8_t>(0x90 | (post.channel - 1)),
+                const int channel = m_post.mpe ? m_mpe.allocate() : post.channel;
+                uint8_t midinote[3] = {static_cast<uint8_t>(0x90 | (channel - 1)),
                                        static_cast<uint8_t>(post.pitch),
                                        static_cast<uint8_t>(velocity)};
                 if (m_midioutput)
                     m_midioutput->sendMidiMessage(midinote, pos);
                 m_emittedPitch[i] = post.pitch;
-                m_emittedChannel[i] = post.channel;
+                m_emittedChannel[i] = channel;
                 m_note_on[i].store(true, std::memory_order_relaxed);
                 ++m_noteOns;
             }
@@ -243,8 +245,17 @@ namespace GuitarMidi
                 if (m_midioutput)
                     m_midioutput->sendMidiMessage(midinote, pos);
                 m_note_on[i].store(false, std::memory_order_relaxed);
+                releaseChannel(i);
             }
         }
+    }
+
+    void NoteInferencer::releaseChannel(int index)
+    {
+        if (index < 0 || index >= NUM_NOTES)
+            return;
+        if (m_post.mpe)
+            m_mpe.release(m_emittedChannel[index]);
     }
 
     void NoteInferencer::handleInputEvent(const MidiInputEvent &event)
@@ -270,6 +281,7 @@ namespace GuitarMidi
         m_pendingCount = 0;
         m_pendingHead = 0;
         m_haveLastResultStamp = false;
+        m_mpe.reset();
         // Results still in flight describe audio from before the reset.
         m_ignoreResultsBefore = m_hopsProcessed;
     }

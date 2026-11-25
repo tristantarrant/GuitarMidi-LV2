@@ -41,6 +41,65 @@ struct NotePostSettings
     int splitNote = 0;   // 0 = off, otherwise the first pitch of the high side
     int lowChannel = 1;  // 1..16
     int highChannel = 1; // 1..16
+    int mpe = 0;         // 1 = give every sounding note its own member channel
+};
+
+/**
+ * MPE-style channel pool: every sounding note gets its own member channel
+ * (2..16) so an MPE instrument can apply per-note bend/aftertouch. When all
+ * fifteen are busy the least recently allocated one is reused, which matches
+ * how an MPE source is expected to behave with a voice-steal.
+ *
+ * The model currently exposes one 37-note output, so this is the routing half
+ * of per-note expression; per-string articulation needs the model exported
+ * with its 78 string/fret tensor as an additional output (see
+ * docs/improvement-plan.md).
+ */
+class MpeChannelPool
+{
+public:
+    static constexpr int kFirstMember = 2;
+    static constexpr int kLastMember = 16;
+
+    int allocate()
+    {
+        for (int channel = kFirstMember; channel <= kLastMember; ++channel)
+            if (!m_used[channel])
+                return take(channel);
+        // All busy: steal the oldest allocation.
+        int oldest = kFirstMember;
+        for (int channel = kFirstMember; channel <= kLastMember; ++channel)
+            if (m_age[channel] < m_age[oldest])
+                oldest = channel;
+        return take(oldest);
+    }
+
+    void release(int channel)
+    {
+        if (channel >= kFirstMember && channel <= kLastMember)
+            m_used[channel] = false;
+    }
+
+    void reset()
+    {
+        for (bool &used : m_used)
+            used = false;
+        for (uint32_t &age : m_age)
+            age = 0;
+        m_counter = 0;
+    }
+
+private:
+    int take(int channel)
+    {
+        m_used[channel] = true;
+        m_age[channel] = ++m_counter;
+        return channel;
+    }
+
+    bool m_used[kLastMember + 1] = {};
+    uint32_t m_age[kLastMember + 1] = {};
+    uint32_t m_counter = 0;
 };
 
 struct NotePostResult

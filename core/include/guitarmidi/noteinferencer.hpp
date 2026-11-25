@@ -93,6 +93,7 @@ namespace GuitarMidi
         // pitch/channel each tracked note was actually emitted on, so note-offs
         // match even if the settings changed while it was held.
         NotePostSettings m_post;
+        MpeChannelPool m_mpe;
         int m_tuningOffset = 0;
         int m_emittedPitch[NUM_NOTES] = {};
         int m_emittedChannel[NUM_NOTES] = {};
@@ -158,6 +159,7 @@ namespace GuitarMidi
         void setSplitNote(int pitch) { m_post.splitNote = pitch; }
         void setLowChannel(int channel) { m_post.lowChannel = channel; }
         void setHighChannel(int channel) { m_post.highChannel = channel; }
+        void setMpe(int enabled) { m_post.mpe = enabled; }
 
         /** Testing/diagnostics hook: lower bound for one inference, in ms. */
         void setInferenceDelayMs(int delay_ms) { m_model.setInferenceDelayMs(delay_ms); }
@@ -178,6 +180,8 @@ namespace GuitarMidi
         void flushNotes(int64_t pos) { flushHeldNotes(pos); }
         /** Clears held notes, pending results and smoothing state. */
         void resetState();
+        /** Releases the MPE member channel a voice was using, if any. */
+        void releaseChannel(int index);
 
         /** Starts a MIDI output sequence before processing a block. */
         void preprocess()        {

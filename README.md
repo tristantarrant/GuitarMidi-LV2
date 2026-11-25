@@ -62,6 +62,7 @@ Note post-processing (applied to the emitted MIDI, after detection):
 * **Split Note (0 = Off)** — [0, 127], default `0`. Notes at or above this pitch are routed to **High Channel**, the rest to **Low Channel**.
 * **Low Channel** — [1, 16], default `1`. Also the channel for every note while the split is off.
 * **High Channel** — [1, 16], default `1`.
+* **MPE Output** — [0, 1], default `0`. When on, every sounding note gets its own member channel (2…16, oldest stolen when all are busy) so an MPE instrument can apply per-note expression. Per-string articulation needs the model exported with its string/fret tensor as an output; see `docs/improvement-plan.md`.
 * **Tuning (semitones)** — [-12, 12], default `0`. Shifts the analysis and the emitted notes together, so a guitar tuned down (or a capo) is reported at its sounding pitch. The model stays in its trained range because the filter bank does the shift.
 
 Notes that are transposed, routed or filtered still release on the channel and pitch they were emitted on, even if these controls change while the note is held.

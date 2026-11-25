@@ -114,6 +114,8 @@ public:
     virtual void setLowChannel(int channel) = 0;
     /** MIDI channel for notes at or above the split (1..16). */
     virtual void setHighChannel(int channel) = 0;
+    /** MPE mode: give every sounding note its own member channel (2..16). */
+    virtual void setMpe(int enabled) = 0;
 
     /** Sets the filter and inference gain control. */
     virtual void setGain(float *gain_db) = 0;
