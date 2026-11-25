@@ -57,10 +57,23 @@ typedef enum
 #ifdef WITH_AUDIO_OUTPUT
 static constexpr uint32_t DEBUG_DATA_PORT = 14;
 static constexpr uint32_t LATENCY_PORT = 15;
+static constexpr uint32_t NOTE_FILTER_PORT = 16;
 #else
 static constexpr uint32_t DEBUG_DATA_PORT = 10;
 static constexpr uint32_t LATENCY_PORT = 11;
+static constexpr uint32_t NOTE_FILTER_PORT = 12;
 #endif
+// Note post-processing ports, in order, starting at NOTE_FILTER_PORT.
+enum NoteFilterPort
+{
+	NOTE_FILTER_SCALE = 0,
+	NOTE_FILTER_ROOT,
+	NOTE_FILTER_TRANSPOSE,
+	NOTE_FILTER_SPLIT,
+	NOTE_FILTER_LOW_CHANNEL,
+	NOTE_FILTER_HIGH_CHANNEL,
+	NOTE_FILTER_COUNT
+};
 static constexpr uint32_t FILTER_WAVEFORM_SAMPLES = 64;
 
 struct GuitarMidiPlugin
@@ -184,6 +197,33 @@ connect_port(LV2_Handle instance,
 	if (port == LATENCY_PORT)
 	{
 		plugin->latency_output = (float *)data;
+		return;
+	}
+	if (port >= NOTE_FILTER_PORT && port < NOTE_FILTER_PORT + NOTE_FILTER_COUNT)
+	{
+		switch ((NoteFilterPort)(port - NOTE_FILTER_PORT))
+		{
+		case NOTE_FILTER_SCALE:
+			fretboard->setScale((int)*(float *)data);
+			break;
+		case NOTE_FILTER_ROOT:
+			fretboard->setScaleRoot((int)*(float *)data);
+			break;
+		case NOTE_FILTER_TRANSPOSE:
+			fretboard->setTranspose((int)*(float *)data);
+			break;
+		case NOTE_FILTER_SPLIT:
+			fretboard->setSplitNote((int)*(float *)data);
+			break;
+		case NOTE_FILTER_LOW_CHANNEL:
+			fretboard->setLowChannel((int)*(float *)data);
+			break;
+		case NOTE_FILTER_HIGH_CHANNEL:
+			fretboard->setHighChannel((int)*(float *)data);
+			break;
+		default:
+			break;
+		}
 		return;
 	}
 

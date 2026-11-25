@@ -25,6 +25,7 @@
 #include <guitarmidi/common.hpp>
 #include <guitarmidi/config.hpp>
 #include <guitarmidi/modelinferencer.hpp>
+#include <guitarmidi/notepostprocess.hpp>
 
 namespace GuitarMidi
 {
@@ -82,6 +83,14 @@ namespace GuitarMidi
         uint64_t m_late = 0;
         uint64_t m_streamGaps = 0;
         uint64_t m_noteOns = 0;
+        uint64_t m_notesFiltered = 0;
+
+        // Note post-processing (scale, transpose, channel routing) and the
+        // pitch/channel each tracked note was actually emitted on, so note-offs
+        // match even if the settings changed while it was held.
+        NotePostSettings m_post;
+        int m_emittedPitch[NUM_NOTES] = {};
+        int m_emittedChannel[NUM_NOTES] = {};
 
         PendingResult m_pending[kMaxPending];
         int m_pendingHead = 0;
@@ -133,6 +142,14 @@ namespace GuitarMidi
         void setOnsetEnergyThreshold(float *threshold) { m_onset_energy_threshold = threshold; }
         /** Sets the note-off energy threshold control. */
         void setOffsetEnergyThreshold(float *threshold) { m_offset_energy_threshold = threshold; }
+
+        /** Note post-processing: scale, root, transpose and channel routing. */
+        void setScale(int scale) { m_post.scale = scale; }
+        void setScaleRoot(int root) { m_post.root = root; }
+        void setTranspose(int semitones) { m_post.transpose = semitones; }
+        void setSplitNote(int pitch) { m_post.splitNote = pitch; }
+        void setLowChannel(int channel) { m_post.lowChannel = channel; }
+        void setHighChannel(int channel) { m_post.highChannel = channel; }
 
         /** Testing/diagnostics hook: lower bound for one inference, in ms. */
         void setInferenceDelayMs(int delay_ms) { m_model.setInferenceDelayMs(delay_ms); }

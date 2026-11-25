@@ -54,6 +54,17 @@ The plugin exposes several LV2 control ports to tune detection behavior. The val
 
 These controls let you balance sensitivity and stability for your guitar signal and playing style.
 
+Note post-processing (applied to the emitted MIDI, after detection):
+
+* **Scale** — [0, 17], default `0` (off). Keeps only notes in the selected scale; 17 scales, from major to phrygian dominant.
+* **Scale Root** — [0, 11], default `0` (C).
+* **Transpose** — [-24, 24], default `0`. Shifts emitted notes in semitones; ±12 is an octave.
+* **Split Note (0 = Off)** — [0, 127], default `0`. Notes at or above this pitch are routed to **High Channel**, the rest to **Low Channel**.
+* **Low Channel** — [1, 16], default `1`. Also the channel for every note while the split is off.
+* **High Channel** — [1, 16], default `1`.
+
+Notes that are transposed, routed or filtered still release on the channel and pitch they were emitted on, even if these controls change while the note is held.
+
 The plugin also exposes an output control port **Latency** (`lv2:latency`): the
 pipeline's fixed detection delay in frames, so the host can compensate for it.
 See [docs/inference-timing.md](docs/inference-timing.md) for how results are

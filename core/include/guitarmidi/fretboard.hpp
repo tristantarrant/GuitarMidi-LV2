@@ -128,6 +128,13 @@ public:
     virtual void setOffsetEnergyThreshold(float* threshold){
         m_noteinferencer.setOffsetEnergyThreshold(threshold);
     }  
+    virtual void setScale(int scale){ m_noteinferencer.setScale(scale); }
+    virtual void setScaleRoot(int root){ m_noteinferencer.setScaleRoot(root); }
+    virtual void setTranspose(int semitones){ m_noteinferencer.setTranspose(semitones); }
+    virtual void setSplitNote(int pitch){ m_noteinferencer.setSplitNote(pitch); }
+    virtual void setLowChannel(int channel){ m_noteinferencer.setLowChannel(channel); }
+    virtual void setHighChannel(int channel){ m_noteinferencer.setHighChannel(channel); }
+
     /** Sets the filter and inference gain control. */
     virtual void setGain(float* gain_db){
         m_filterbank.setGain(gain_db);

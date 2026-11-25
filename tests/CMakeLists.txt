@@ -5,6 +5,9 @@ include_directories(${PROJECT_SOURCE_DIR}/ext/zita-resampler-1.11.2/source)
 add_executable(test_ringbuffer test_ringbuffer.cpp)
 add_test(NAME ringbuffer COMMAND test_ringbuffer)
 
+add_executable(test_postprocess test_postprocess.cpp)
+add_test(NAME postprocess COMMAND test_postprocess)
+
 # The frame-assembly test needs no TensorFlow: compile the DSP sources directly.
 add_executable(test_filterbank_frame
     test_filterbank_frame.cpp

@@ -93,6 +93,19 @@ public:
     virtual void setOnsetEnergyThreshold(float *threshold) = 0;
     /** Sets the note-off energy threshold control. */
     virtual void setOffsetEnergyThreshold(float *threshold) = 0;
+    /** Note post-processing: keep notes in this scale (0 = off). */
+    virtual void setScale(int scale) = 0;
+    /** Scale root, 0 = C. */
+    virtual void setScaleRoot(int root) = 0;
+    /** Transpose emitted notes by this many semitones (-24..24). */
+    virtual void setTranspose(int semitones) = 0;
+    /** First pitch routed to the high channel (0 = no split). */
+    virtual void setSplitNote(int pitch) = 0;
+    /** MIDI channel for notes below the split (1..16). */
+    virtual void setLowChannel(int channel) = 0;
+    /** MIDI channel for notes at or above the split (1..16). */
+    virtual void setHighChannel(int channel) = 0;
+
     /** Sets the filter and inference gain control. */
     virtual void setGain(float *gain_db) = 0;
     /** Sets the MIDI expressivity control. */

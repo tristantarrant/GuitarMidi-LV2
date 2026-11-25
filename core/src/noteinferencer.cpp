@@ -33,7 +33,9 @@ namespace GuitarMidi
         {
             if (m_note_on[i].load(std::memory_order_relaxed))
             {
-                uint8_t midinote[3] = {0x90, static_cast<uint8_t>(i + NOTE_OFFSET), 0x00};
+                const int channel = m_emittedChannel[i] > 0 ? m_emittedChannel[i] : 1;
+                uint8_t midinote[3] = {static_cast<uint8_t>(0x90 | (channel - 1)),
+                                       static_cast<uint8_t>(m_emittedPitch[i]), 0x00};
                 if (m_midioutput)
                     m_midioutput->sendMidiMessage(midinote, pos);
                 m_note_on[i].store(false, std::memory_order_relaxed);
@@ -189,17 +191,31 @@ namespace GuitarMidi
         {
             if (triggeron[i])
             {
+                const NotePostResult post = postProcessNote(m_post, i + NOTE_OFFSET);
+                if (!post.keep)
+                {
+                    // Out of scale or out of MIDI range: no note, and no note
+                    // to release later.
+                    ++m_notesFiltered;
+                    continue;
+                }
                 int velocity = (int)(smoothed_noteenergies[i] / (gain * expressivity) * 127);
                 velocity = std::min(velocity, 127); // cap the velocity at 127
-                uint8_t midinote[3] = {0x90, static_cast<uint8_t>(i + NOTE_OFFSET), static_cast<uint8_t>(velocity)};
+                uint8_t midinote[3] = {static_cast<uint8_t>(0x90 | (post.channel - 1)),
+                                       static_cast<uint8_t>(post.pitch),
+                                       static_cast<uint8_t>(velocity)};
                 if (m_midioutput)
                     m_midioutput->sendMidiMessage(midinote, pos);
+                m_emittedPitch[i] = post.pitch;
+                m_emittedChannel[i] = post.channel;
                 m_note_on[i].store(true, std::memory_order_relaxed);
                 ++m_noteOns;
             }
             if (triggeroff[i] && m_note_on[i])
             {
-                uint8_t midinote[3] = {0x90, static_cast<uint8_t>(i + NOTE_OFFSET), 0x00};
+                const int channel = m_emittedChannel[i] > 0 ? m_emittedChannel[i] : 1;
+                uint8_t midinote[3] = {static_cast<uint8_t>(0x90 | (channel - 1)),
+                                       static_cast<uint8_t>(m_emittedPitch[i]), 0x00};
                 if (m_midioutput)
                     m_midioutput->sendMidiMessage(midinote, pos);
                 m_note_on[i].store(false, std::memory_order_relaxed);
@@ -262,6 +278,7 @@ namespace GuitarMidi
         stats.staleDropped = m_staleDropped;
         stats.late = m_late;
         stats.noteOns = m_noteOns;
+        stats.notesFiltered = m_notesFiltered;
         stats.meanInferenceMs = m_model.meanInferenceMs();
         stats.maxInferenceMs = m_model.maxInferenceMs();
         return stats;
