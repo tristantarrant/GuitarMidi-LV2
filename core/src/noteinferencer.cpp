@@ -18,6 +18,7 @@ namespace GuitarMidi
     {
         if (m_midioutput)
             m_midioutput->initializeSequence();
+        m_pitch.configure(NATIVE_SAMPLERATE);
         return m_model.initialize(bundle_path);
     }
 
@@ -248,6 +249,74 @@ namespace GuitarMidi
                 releaseChannel(i);
             }
         }
+        resetBend(pos);
+    }
+
+    void NoteInferencer::resetBend(int64_t pos)
+    {
+        if (m_lastBend == 8192)
+            return;
+        uint8_t message[3] = {static_cast<uint8_t>(0xE0 | (m_lastBendChannel - 1)),
+                              0x00, 0x40};
+        if (m_midioutput)
+            m_midioutput->sendMidiMessage(message, pos);
+        m_lastBend = 8192;
+    }
+
+    void NoteInferencer::trackBend(int64_t pos)
+    {
+        if (!m_bend_range || *m_bend_range <= 0.0f)
+            return;
+
+        // Only a single sounding note has an unambiguous pitch to follow.
+        int active = -1;
+        int activeCount = 0;
+        for (int i = 0; i < NUM_NOTES; ++i)
+            if (m_note_on[i].load(std::memory_order_relaxed))
+            {
+                active = i;
+                ++activeCount;
+            }
+        if (activeCount != 1)
+        {
+            resetBend(pos);
+            return;
+        }
+
+        float frequency = 0.0f;
+        float clarity = 0.0f;
+        if (!m_pitch.analyse(frequency, clarity) || clarity < 0.80f || frequency <= 0.0f)
+        {
+            resetBend(pos);
+            return;
+        }
+
+        const float midi = 69.0f + 12.0f * std::log2(frequency / 440.0f);
+        // Compare with the pitch the tracker reported (before transpose, which
+        // shifts the note, not the bend).
+        const float detected = static_cast<float>(active + NOTE_OFFSET + m_tuningOffset);
+        const float delta = midi - detected;
+        // Outside the window the note has changed; let the model retrigger.
+        if (std::fabs(delta) > 1.5f)
+        {
+            resetBend(pos);
+            return;
+        }
+
+        const float normalised = std::max(-1.0f, std::min(1.0f, delta / *m_bend_range));
+        int value = 8192 + static_cast<int>(std::lround(normalised * 8191.0f));
+        value = std::max(0, std::min(16383, value));
+        if (std::abs(value - m_lastBend) < 16)
+            return;
+
+        const int channel = m_emittedChannel[active] > 0 ? m_emittedChannel[active] : 1;
+        uint8_t message[3] = {static_cast<uint8_t>(0xE0 | (channel - 1)),
+                              static_cast<uint8_t>(value & 0x7F),
+                              static_cast<uint8_t>((value >> 7) & 0x7F)};
+        if (m_midioutput)
+            m_midioutput->sendMidiMessage(message, pos);
+        m_lastBend = value;
+        m_lastBendChannel = channel;
     }
 
     void NoteInferencer::releaseChannel(int index)
@@ -314,6 +383,10 @@ namespace GuitarMidi
         }
 
         emitDueResults(pos);
+
+        // Bends are continuous, so they are tracked and emitted at the current
+        // hop rather than through the result scheduler.
+        trackBend(pos);
     }
 
     void NoteInferencer::getDebugData(float *smoothed_confidences, float *smoothed_energies,

@@ -116,6 +116,11 @@ public:
     virtual void setHighChannel(int channel) = 0;
     /** MPE mode: give every sounding note its own member channel (2..16). */
     virtual void setMpe(int enabled) = 0;
+    /**
+     * Pitch-bend range of the downstream instrument, in semitones. While one
+     * note sounds the plugin follows its pitch and emits bend; 0 disables it.
+     */
+    virtual void setBendRange(float *range) = 0;
 
     /** Sets the filter and inference gain control. */
     virtual void setGain(float *gain_db) = 0;

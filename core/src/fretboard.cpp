@@ -33,6 +33,7 @@ FretBoard::FretBoard(GuitarMidiOutput* midioutput) : m_noteinferencer(midioutput
 
 void FretBoard::setAudioInput(const float *input)
 {
+    m_input_ptr = input;
     if (m_samplerate != NATIVE_SAMPLERATE)
     {
         m_input_buffer = const_cast<float *>(input);
@@ -190,6 +191,7 @@ void FretBoard::consumeResampled(const float* data,int count,int eventPos)
     while (off < count)
     {
         const int n = std::min(count - off, BUFFER_SIZE - m_hopFill);
+        m_noteinferencer.pushAudio(data + off, n);
         m_filterbank.process(n, off);
         off += n;
         m_hopFill += n;
@@ -204,6 +206,8 @@ void FretBoard::consumeResampled(const float* data,int count,int eventPos)
 
 void FretBoard::process_direct(int nsamples,int pos)
 {
+    if (m_input_ptr)
+        m_noteinferencer.pushAudio(m_input_ptr + pos, nsamples);
     m_filterbank.process(nsamples,pos);
     m_hopFill += nsamples;
     if (m_hopFill >= BUFFER_SIZE)

@@ -63,6 +63,7 @@ private:
     /** Host block size of the current process() call, for event clamping. */
     int m_blockSize=0;
     float* m_enabled=nullptr;
+    const float* m_input_ptr=nullptr;
     bool m_bypassActive=false;
 
     /** Processes an audio block after sample-rate conversion. */
@@ -145,6 +146,7 @@ public:
     virtual void setLowChannel(int channel){ m_noteinferencer.setLowChannel(channel); }
     virtual void setHighChannel(int channel){ m_noteinferencer.setHighChannel(channel); }
     virtual void setMpe(int enabled){ m_noteinferencer.setMpe(enabled); }
+    virtual void setBendRange(float* range){ m_noteinferencer.setBendRange(range); }
 
     /** Sets the filter and inference gain control. */
     virtual void setGain(float* gain_db){

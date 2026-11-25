@@ -249,6 +249,14 @@
 		lv2:default 0 ;
 		lv2:minimum 0 ;
 		lv2:maximum 1
+	], [
+		a lv2:InputPort, lv2:ControlPort ;
+		lv2:index 22 ;
+		lv2:symbol "bendrange" ;
+		lv2:name "Bend Range (semitones)" ;
+		lv2:default 2.0 ;
+		lv2:minimum 0.0 ;
+		lv2:maximum 24.0
 	] .
 
 <http://github.com/geraldmwangi/GuitarMidi-LV2#ui>

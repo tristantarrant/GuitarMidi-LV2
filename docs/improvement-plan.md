@@ -20,7 +20,7 @@ below), so individual commits can be proposed upstream as separate PRs.
 |---|---|
 | 1 defaults | done |
 | 2 post-processing | scale/transpose/split done; harmonic suppression and velocity-to-CC deferred (see item) |
-| 3 mono pitch bend | deferred; largest item, needs its own test with synthetic glides |
+| 3 mono pitch bend | done: YIN tracker, bend window and bend-range port |
 | 4 hosting | no `exit()`, no audio-path I/O, thread budget, MIDI-in/panic and `lv2:enabled` bypass done; resampler latency outstanding |
 | 5 velocity/thresholds | done: velocity from the strongest harmonic, thresholds now in dBFS |
 | 6 tuning/range | tuning shift and MPE routing done; per-string output needs a model re-export |
@@ -104,7 +104,9 @@ note. Outside a bend window, commit a new note as today.
 * **Licensing:** Stringler is GPL-2.0+ and the GuitarMidi core is LGPL. Do not
   copy Stringler's implementation; YIN is a published algorithm, implement it
   from the paper.
-* Sets up MPE later: with per-note channels, bends are per-note.
+* Sets up MPE later: with per-note channels, bends are per-note. (MPE
+  routing is in; the bend now follows whichever channel the note was
+  emitted on.)
 
 Verify: a new `test_pitch_track` with synthetic glides (a sine swept ±200
 cents) asserting the emitted bend follows the sweep and that no spurious

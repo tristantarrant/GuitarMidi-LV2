@@ -26,6 +26,7 @@
 #include <guitarmidi/config.hpp>
 #include <guitarmidi/modelinferencer.hpp>
 #include <guitarmidi/notepostprocess.hpp>
+#include <guitarmidi/pitchtracker.hpp>
 
 namespace GuitarMidi
 {
@@ -94,6 +95,10 @@ namespace GuitarMidi
         // match even if the settings changed while it was held.
         NotePostSettings m_post;
         MpeChannelPool m_mpe;
+        PitchTracker m_pitch;
+        float *m_bend_range = nullptr;
+        int m_lastBend = 8192;
+        int m_lastBendChannel = 1;
         int m_tuningOffset = 0;
         int m_emittedPitch[NUM_NOTES] = {};
         int m_emittedChannel[NUM_NOTES] = {};
@@ -182,6 +187,15 @@ namespace GuitarMidi
         void resetState();
         /** Releases the MPE member channel a voice was using, if any. */
         void releaseChannel(int index);
+
+        /** Feeds raw input audio to the monophonic bend tracker. */
+        void pushAudio(const float *samples, int frames) { m_pitch.push(samples, frames); }
+        /** Pitch-bend range in semitones; 0 (or null) disables bend tracking. */
+        void setBendRange(float *range) { m_bend_range = range; }
+        /** Emits pitch bend for the currently sounding note, if any. */
+        void trackBend(int64_t pos);
+        /** Recentres the pitch wheel if it was moved. */
+        void resetBend(int64_t pos);
 
         /** Starts a MIDI output sequence before processing a block. */
         void preprocess()        {

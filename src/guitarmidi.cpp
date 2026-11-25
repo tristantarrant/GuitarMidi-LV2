@@ -63,6 +63,7 @@ static constexpr uint32_t NOTE_FILTER_PORT = 16;
 static constexpr uint32_t ENABLED_PORT = 23;
 static constexpr uint32_t MIDI_IN_PORT = 24;
 static constexpr uint32_t MPE_PORT = 25;
+static constexpr uint32_t BEND_RANGE_PORT = 26;
 #else
 static constexpr uint32_t DEBUG_DATA_PORT = 10;
 static constexpr uint32_t LATENCY_PORT = 11;
@@ -70,6 +71,7 @@ static constexpr uint32_t NOTE_FILTER_PORT = 12;
 static constexpr uint32_t ENABLED_PORT = 19;
 static constexpr uint32_t MIDI_IN_PORT = 20;
 static constexpr uint32_t MPE_PORT = 21;
+static constexpr uint32_t BEND_RANGE_PORT = 22;
 #endif
 static constexpr int MAX_MIDI_INPUT_EVENTS = 64;
 // Note post-processing ports, in order, starting at NOTE_FILTER_PORT.
@@ -225,6 +227,11 @@ connect_port(LV2_Handle instance,
 	if (port == MPE_PORT)
 	{
 		fretboard->setMpe((int)*(float *)data);
+		return;
+	}
+	if (port == BEND_RANGE_PORT)
+	{
+		fretboard->setBendRange((float *)data);
 		return;
 	}
 	if (port >= NOTE_FILTER_PORT && port < NOTE_FILTER_PORT + NOTE_FILTER_COUNT)
