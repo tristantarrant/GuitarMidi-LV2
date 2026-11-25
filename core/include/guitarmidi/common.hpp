@@ -73,6 +73,18 @@ namespace GuitarMidi
     };
 
     /*
+    * One incoming MIDI message, decoded by the LV2 wrapper from its atom
+    * sequence. Three bytes is enough for every channel message the plugin
+    * handles; longer messages are dropped by the wrapper.
+    */
+    struct MidiInputEvent
+    {
+        int64_t frame = 0;
+        uint8_t size = 0;
+        uint8_t data[3] = {0, 0, 0};
+    };
+
+    /*
     * Observable state of the detection pipeline. Everything here is a counter
     * except the inference timings, so a host or a test can tell whether the
     * pipeline kept up with real time instead of guessing from the audio.

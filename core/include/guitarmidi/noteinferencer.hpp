@@ -80,6 +80,7 @@ namespace GuitarMidi
 
         int m_backpressureMs = 0;
         uint64_t m_hopsProcessed = 0;
+        uint64_t m_ignoreResultsBefore = 0;
         uint64_t m_lastResultStamp = 0;
         bool m_haveLastResultStamp = false;
         uint64_t m_staleDropped = 0;
@@ -166,6 +167,17 @@ namespace GuitarMidi
             m_backpressureMs = milliseconds;
             m_model.setBackpressureMs(milliseconds);
         }
+
+        /**
+         * Handles one incoming MIDI message: forwards it to the output (the
+         * plugin merges its input with the tracker) and treats the all-notes-off
+         * controllers as a request to release the notes the tracker is holding.
+         */
+        void handleInputEvent(const MidiInputEvent &event);
+        /** Releases every note the tracker is holding, at `pos`. */
+        void flushNotes(int64_t pos) { flushHeldNotes(pos); }
+        /** Clears held notes, pending results and smoothing state. */
+        void resetState();
 
         /** Starts a MIDI output sequence before processing a block. */
         void preprocess()        {

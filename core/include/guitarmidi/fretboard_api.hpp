@@ -93,6 +93,13 @@ public:
     virtual void setOnsetEnergyThreshold(float *threshold) = 0;
     /** Sets the note-off energy threshold control. */
     virtual void setOffsetEnergyThreshold(float *threshold) = 0;
+    /**
+     * Bypass control (`lv2:enabled`): 1 = process, 0 = bypass. While bypassed
+     * the plugin passes incoming MIDI through, releases its held notes and
+     * stops detecting; re-enabling starts from a clean pipeline.
+     */
+    virtual void setEnabled(float *enabled) = 0;
+
     /** Shift the analysis by this many semitones (guitar tuning offset). */
     virtual void setTuning(int semitones) = 0;
     /** Note post-processing: keep notes in this scale (0 = off). */
@@ -143,7 +150,8 @@ public:
      *
      * @param nsamples
      */
-    virtual void process(int nsamples) = 0;
+    virtual void process(int nsamples, const GuitarMidi::MidiInputEvent *events = nullptr,
+                         int eventCount = 0) = 0;
 
     /** Constant pipeline delay in frames, for the host's latency compensation. */
     virtual uint32_t getLatencyFrames() const = 0;

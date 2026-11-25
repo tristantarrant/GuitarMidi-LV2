@@ -91,11 +91,39 @@ void FretBoard::finalize()
     m_hopFill = 0;
 }
 
-void FretBoard::process(int nsamples)
+void FretBoard::process(int nsamples, const GuitarMidi::MidiInputEvent *events, int eventCount)
 {
     // prepare the output stream
     m_noteinferencer.preprocess();
     m_blockSize = nsamples;
+
+    // Incoming MIDI is merged with the tracker and passed through.
+    for (int i = 0; i < eventCount; ++i)
+        m_noteinferencer.handleInputEvent(events[i]);
+
+    const bool enabled = (m_enabled == nullptr) || (*m_enabled > 0.5f);
+    if (!enabled)
+    {
+        if (!m_bypassActive)
+        {
+            // Release what the tracker is holding and drop its state; while
+            // bypassed no audio is analysed, so the next frame would otherwise
+            // be stitched onto pre-bypass history.
+            m_noteinferencer.resetState();
+            m_filterbank.reset();
+            m_hopFill = 0;
+            m_bypassActive = true;
+        }
+        m_noteinferencer.postprocess();
+        return;
+    }
+    if (m_bypassActive)
+    {
+        m_filterbank.reset();
+        m_noteinferencer.resetState();
+        m_hopFill = 0;
+        m_bypassActive = false;
+    }
 
     // A tuning change means new biquad coefficients. Do it here (not on the
     // host thread), once, and start from a clean filter state.

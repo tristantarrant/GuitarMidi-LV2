@@ -62,6 +62,8 @@ private:
     int m_hopFill=0;
     /** Host block size of the current process() call, for event clamping. */
     int m_blockSize=0;
+    float* m_enabled=nullptr;
+    bool m_bypassActive=false;
 
     /** Processes an audio block after sample-rate conversion. */
     void process_resampled(int nsamples,int pos=0);
@@ -193,7 +195,10 @@ public:
      * 
      * @param nsamples 
      */
-    virtual void process(int nsamples);
+    virtual void setEnabled(float* enabled){ m_enabled = enabled; }
+
+    virtual void process(int nsamples, const GuitarMidi::MidiInputEvent *events = nullptr,
+                         int eventCount = 0);
 
     /** Constant pipeline delay in frames (analysis window + scheduling). */
     virtual uint32_t getLatencyFrames() const

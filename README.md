@@ -66,6 +66,8 @@ Note post-processing (applied to the emitted MIDI, after detection):
 
 Notes that are transposed, routed or filtered still release on the channel and pitch they were emitted on, even if these controls change while the note is held.
 
+The plugin also has a **MIDI In** port. Its messages are merged with the tracker's output (so a keyboard can play through the plugin), roughly at block granularity; CC 120 and CC 123 additionally release any notes the tracker is holding. The **Enabled** port is standard LV2 bypass: while bypassed the plugin passes MIDI through, releases its notes and stops detecting.
+
 The plugin also exposes an output control port **Latency** (`lv2:latency`): the
 pipeline's fixed detection delay in frames, so the host can compensate for it.
 See [docs/inference-timing.md](docs/inference-timing.md) for how results are

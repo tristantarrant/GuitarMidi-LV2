@@ -56,6 +56,8 @@ namespace GuitarMidi
         uint64_t stamp = 0;
         while (m_model.get_model_output(probabilities, stamp))
         {
+            if (stamp <= m_ignoreResultsBefore)
+                continue;
             if (m_haveLastResultStamp && stamp != m_lastResultStamp + 1)
             {
                 // The inference stream skipped a hop: either a frame was
@@ -240,6 +242,33 @@ namespace GuitarMidi
                 m_note_on[i].store(false, std::memory_order_relaxed);
             }
         }
+    }
+
+    void NoteInferencer::handleInputEvent(const MidiInputEvent &event)
+    {
+        if (event.size < 3)
+            return;
+        const uint8_t status = event.data[0] & 0xF0;
+        const uint8_t controller = event.data[1];
+        // CC 120 (all sound off) and CC 123 (all notes off) also clear the
+        // notes the tracker is holding; the message itself is passed on so a
+        // downstream instrument releases its own voices.
+        if (status == 0xB0 && (controller == 120 || controller == 123))
+            flushHeldNotes(0);
+
+        uint8_t message[3] = {event.data[0], event.data[1], event.data[2]};
+        if (m_midioutput)
+            m_midioutput->sendMidiMessage(message, 0);
+    }
+
+    void NoteInferencer::resetState()
+    {
+        flushHeldNotes(0);
+        m_pendingCount = 0;
+        m_pendingHead = 0;
+        m_haveLastResultStamp = false;
+        // Results still in flight describe audio from before the reset.
+        m_ignoreResultsBefore = m_hopsProcessed;
     }
 
     void NoteInferencer::processHop(int64_t pos)

@@ -26,6 +26,8 @@
 #include <lv2/options/options.h>
 #include <lv2/buf-size/buf-size.h>
 #include <lv2/urid/urid.h>
+#include <lv2/midi/midi.h>
+#include <lv2/atom/util.h>
 #include <lv2/log/logger.h>
 #include <guitarmidi/common.hpp>
 #include <guitarmidi/filterbank.hpp>
@@ -58,11 +60,16 @@ typedef enum
 static constexpr uint32_t DEBUG_DATA_PORT = 14;
 static constexpr uint32_t LATENCY_PORT = 15;
 static constexpr uint32_t NOTE_FILTER_PORT = 16;
+static constexpr uint32_t ENABLED_PORT = 23;
+static constexpr uint32_t MIDI_IN_PORT = 24;
 #else
 static constexpr uint32_t DEBUG_DATA_PORT = 10;
 static constexpr uint32_t LATENCY_PORT = 11;
 static constexpr uint32_t NOTE_FILTER_PORT = 12;
+static constexpr uint32_t ENABLED_PORT = 19;
+static constexpr uint32_t MIDI_IN_PORT = 20;
 #endif
+static constexpr int MAX_MIDI_INPUT_EVENTS = 64;
 // Note post-processing ports, in order, starting at NOTE_FILTER_PORT.
 enum NoteFilterPort
 {
@@ -83,6 +90,8 @@ struct GuitarMidiPlugin
 	LV2_Atom_Sequence *debug_output = nullptr;
 	LV2_Atom_Forge debug_forge;
 	float *latency_output = nullptr;
+	LV2_Atom_Sequence *midi_input = nullptr;
+	LV2_URID midi_event = 0;
 	float debug_tick = 0.0f;
 	uint64_t debug_samples_since_update = 0;
 	uint64_t debug_update_interval_samples = 2400;
@@ -167,6 +176,7 @@ instantiate(const LV2_Descriptor *descriptor,
 	}
 	GuitarMidi::MidiOutputLV2 *midi = new GuitarMidi::MidiOutputLV2(map);
 	GuitarMidiPlugin *plugin = new GuitarMidiPlugin();
+	plugin->midi_event = map->map(map->handle, LV2_MIDI__MidiEvent);
 	lv2_atom_forge_init(&plugin->debug_forge, map);
 	plugin->debug_update_interval_samples = static_cast<uint64_t>(rate / 20.0);
 	if (plugin->debug_update_interval_samples == 0)
@@ -198,6 +208,16 @@ connect_port(LV2_Handle instance,
 	if (port == LATENCY_PORT)
 	{
 		plugin->latency_output = (float *)data;
+		return;
+	}
+	if (port == ENABLED_PORT)
+	{
+		fretboard->setEnabled((float *)data);
+		return;
+	}
+	if (port == MIDI_IN_PORT)
+	{
+		plugin->midi_input = (LV2_Atom_Sequence *)data;
 		return;
 	}
 	if (port >= NOTE_FILTER_PORT && port < NOTE_FILTER_PORT + NOTE_FILTER_COUNT)
@@ -309,7 +329,26 @@ run(LV2_Handle instance, uint32_t n_samples)
 	GuitarMidiPlugin *plugin = (GuitarMidiPlugin *)instance;
 	if (plugin->latency_output)
 		*plugin->latency_output = (float)plugin->fretboard->getLatencyFrames();
-	plugin->fretboard->process(n_samples);
+
+	// Decode the incoming MIDI sequence into plain messages for the engine.
+	GuitarMidi::MidiInputEvent events[MAX_MIDI_INPUT_EVENTS];
+	int eventCount = 0;
+	if (plugin->midi_input)
+	{
+		LV2_ATOM_SEQUENCE_FOREACH(plugin->midi_input, ev)
+		{
+			if (eventCount >= MAX_MIDI_INPUT_EVENTS)
+				break;
+			if (ev->body.type != plugin->midi_event || ev->body.size != 3)
+				continue;
+			events[eventCount].frame = (int64_t)ev->time.frames;
+			events[eventCount].size = 3;
+			memcpy(events[eventCount].data, (const uint8_t *)(ev + 1), 3);
+			++eventCount;
+		}
+	}
+
+	plugin->fretboard->process(n_samples, events, eventCount);
 	if (plugin->debug_output)
 	{
 		plugin->debug_samples_since_update += n_samples;
