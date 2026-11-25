@@ -199,7 +199,7 @@ void FretBoard::consumeResampled(const float* data,int count,int eventPos)
         {
             m_hopFill = 0;
             m_filterbank.captureFrame();
-            m_noteinferencer.processHop(std::min<int64_t>(m_blockSize - 1, eventPos));
+            m_noteinferencer.processHop(std::min<int64_t>(m_blockSize - 1, eventPos), m_blockSize);
         }
     }
 }
@@ -216,7 +216,7 @@ void FretBoard::process_direct(int nsamples,int pos)
         m_filterbank.captureFrame();
         // pos + nsamples is the first sample after the analysed window; clamp
         // to the block because an LV2 event time must be inside it.
-        m_noteinferencer.processHop(std::min<int64_t>(m_blockSize - 1, pos + nsamples));
+        m_noteinferencer.processHop(std::min<int64_t>(m_blockSize - 1, pos + nsamples), m_blockSize);
     }
 }
 

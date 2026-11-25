@@ -39,7 +39,7 @@ namespace GuitarMidi
                 uint8_t midinote[3] = {static_cast<uint8_t>(0x90 | (channel - 1)),
                                        static_cast<uint8_t>(m_emittedPitch[i]), 0x00};
                 if (m_midioutput)
-                    m_midioutput->sendMidiMessage(midinote, pos);
+                    m_midioutput->sendMidiMessage(midinote, clampEmit(pos));
                 m_note_on[i].store(false, std::memory_order_relaxed);
                 releaseChannel(i);
             }
@@ -153,6 +153,7 @@ namespace GuitarMidi
 
         bool triggeron[NUM_NOTES] = {false};
         bool triggeroff[NUM_NOTES] = {false};
+        float previous_onset[NUM_NOTES] = {0.0f};
         for (int i = 0; i < NUM_NOTES; i++)
         {
             // Gating keeps using the fundamental band, so the documented
@@ -170,6 +171,7 @@ namespace GuitarMidi
 
             m_momentary_confidences[i] = output_data[i];
             m_momentary_noteenergies[i] = note_energy;
+            previous_onset[i] = smoothed_onsetoutput[i];
 
             smoothed_velocityenergies[i] = *m_smoothing * smoothed_velocityenergies[i] +
                                            (1 - *m_smoothing) * note_energy *
@@ -231,8 +233,13 @@ namespace GuitarMidi
                 uint8_t midinote[3] = {static_cast<uint8_t>(0x90 | (channel - 1)),
                                        static_cast<uint8_t>(post.pitch),
                                        static_cast<uint8_t>(velocity)};
+                // Place the note where the smoothed confidence crossed the
+                // threshold, not at the hop end.
+                const int64_t eventPos = clampEmit(onsetFramePosition(
+                    pos, previous_onset[i], smoothed_onsetoutput[i],
+                    *m_onset_threshold, BUFFER_SIZE, m_blockSize));
                 if (m_midioutput)
-                    m_midioutput->sendMidiMessage(midinote, pos);
+                    m_midioutput->sendMidiMessage(midinote, eventPos);
                 m_emittedPitch[i] = post.pitch;
                 m_emittedChannel[i] = channel;
                 m_note_on[i].store(true, std::memory_order_relaxed);
@@ -250,6 +257,14 @@ namespace GuitarMidi
             }
         }
         resetBend(pos);
+    }
+
+    int64_t NoteInferencer::clampEmit(int64_t position)
+    {
+        if (position < m_lastEmitPos)
+            position = m_lastEmitPos;
+        m_lastEmitPos = position;
+        return position;
     }
 
     void NoteInferencer::resetBend(int64_t pos)
@@ -355,8 +370,16 @@ namespace GuitarMidi
         m_ignoreResultsBefore = m_hopsProcessed;
     }
 
-    void NoteInferencer::processHop(int64_t pos)
+    void NoteInferencer::preprocess()
     {
+        m_lastEmitPos = -1;
+        if (m_midioutput)
+            m_midioutput->initializeSequence();
+    }
+
+    void NoteInferencer::processHop(int64_t pos, int blockSize)
+    {
+        m_blockSize = blockSize > 0 ? blockSize : 1;
         const uint64_t stamp = ++m_hopsProcessed;
         // A refused frame is a hole in the stream; the resulting stamp gap is
         // handled in drainResults once inference catches up.

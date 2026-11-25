@@ -125,6 +125,10 @@ Reading the numbers:
   one-pole, which depend on the detection controls.
 * The residual false positive (1 per phrase) is the model's harmonic double,
   which is present at every block size and is a model issue, not a timing one.
+* These numbers predate the sub-hop onset placement added later (improvement
+  plan item 7). With note-ons stamped at the interpolated threshold crossing
+  instead of the hop end, the same phrase measures 29.15 ms mean / 31.40 ms
+  max at block 256 (was 32.32 / 34.65), sd 1.32 ms.
 
 ## Reproducing
 

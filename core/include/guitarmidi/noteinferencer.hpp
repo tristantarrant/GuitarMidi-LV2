@@ -27,6 +27,7 @@
 #include <guitarmidi/modelinferencer.hpp>
 #include <guitarmidi/notepostprocess.hpp>
 #include <guitarmidi/pitchtracker.hpp>
+#include <guitarmidi/onset.hpp>
 
 namespace GuitarMidi
 {
@@ -82,6 +83,8 @@ namespace GuitarMidi
         int m_backpressureMs = 0;
         uint64_t m_hopsProcessed = 0;
         uint64_t m_ignoreResultsBefore = 0;
+        int m_blockSize = 1;
+        int64_t m_lastEmitPos = -1;
         uint64_t m_lastResultStamp = 0;
         bool m_haveLastResultStamp = false;
         uint64_t m_staleDropped = 0;
@@ -185,6 +188,8 @@ namespace GuitarMidi
         void flushNotes(int64_t pos) { flushHeldNotes(pos); }
         /** Clears held notes, pending results and smoothing state. */
         void resetState();
+        /** Keeps event times non-decreasing inside a block. */
+        int64_t clampEmit(int64_t position);
         /** Releases the MPE member channel a voice was using, if any. */
         void releaseChannel(int index);
 
@@ -198,10 +203,7 @@ namespace GuitarMidi
         void resetBend(int64_t pos);
 
         /** Starts a MIDI output sequence before processing a block. */
-        void preprocess()        {
-            if (m_midioutput)
-                m_midioutput->initializeSequence();
-        }
+        void preprocess();
 
         /** Completes a MIDI output sequence after processing a block. */
         void postprocess()
@@ -215,7 +217,7 @@ namespace GuitarMidi
          * captured a contiguous frame. `pos` is the frame offset within the
          * host block at which that hop ended.
          */
-        void processHop(int64_t pos);
+        void processHop(int64_t pos, int blockSize);
 
         /** Constant pipeline delay in frames, including the analysis window. */
         static constexpr uint32_t latencyFrames()

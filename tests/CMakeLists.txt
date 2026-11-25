@@ -8,6 +8,9 @@ add_test(NAME ringbuffer COMMAND test_ringbuffer)
 add_executable(test_postprocess test_postprocess.cpp)
 add_test(NAME postprocess COMMAND test_postprocess)
 
+add_executable(test_onset test_onset.cpp)
+add_test(NAME onset COMMAND test_onset)
+
 add_executable(test_pitchtracker test_pitchtracker.cpp)
 add_test(NAME pitchtracker COMMAND test_pitchtracker)
 
