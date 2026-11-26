@@ -121,6 +121,11 @@ public:
      * note sounds the plugin follows its pitch and emits bend; 0 disables it.
      */
     virtual void setBendRange(float *range) = 0;
+    /**
+     * One note per string using the model's per-string head (needs a model
+     * exported with the second output; ignored otherwise). 0/1.
+     */
+    virtual void setPerString(int enabled) = 0;
 
     /** Sets the filter and inference gain control. */
     virtual void setGain(float *gain_db) = 0;

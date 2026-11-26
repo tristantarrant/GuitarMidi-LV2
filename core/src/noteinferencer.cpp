@@ -55,9 +55,9 @@ namespace GuitarMidi
 
     void NoteInferencer::drainResults(int64_t pos)
     {
-        float probabilities[NUM_NOTES];
+        float frame[ModelInferencer::kFrameValues];
         uint64_t stamp = 0;
-        while (m_model.get_model_output(probabilities, stamp))
+        while (m_model.get_model_output(frame, stamp))
         {
             if (stamp <= m_ignoreResultsBefore)
                 continue;
@@ -85,8 +85,10 @@ namespace GuitarMidi
             }
             const int slot = (m_pendingHead + m_pendingCount) % kMaxPending;
             m_pending[slot].stamp = stamp;
-            std::memcpy(m_pending[slot].probabilities, probabilities,
+            std::memcpy(m_pending[slot].probabilities, frame,
                         sizeof(float) * NUM_NOTES);
+            std::memcpy(m_pending[slot].stringProbabilities, frame + NUM_NOTES,
+                        sizeof(float) * NUM_STRINGS * NUM_FRETS);
             ++m_pendingCount;
         }
     }
@@ -112,7 +114,7 @@ namespace GuitarMidi
             {
                 if (age > PIPELINE_LATENCY_HOPS)
                     ++m_late;
-                applyResult(pending.probabilities, pos);
+                applyResult(pending.probabilities, pending.stringProbabilities, pos);
             }
 
             m_pendingHead = (m_pendingHead + 1) % kMaxPending;
@@ -137,7 +139,8 @@ namespace GuitarMidi
         }
     } // namespace
 
-    void NoteInferencer::applyResult(const float *output_data, int64_t pos)
+    void NoteInferencer::applyResult(const float *output_data,
+                                     const float *string_data, int64_t pos)
     {
         if (!m_gain_db || !m_expressivity_db || !m_smoothing || !m_smoothing_offset ||
             !m_onset_threshold || !m_offset_threshold ||
@@ -215,6 +218,12 @@ namespace GuitarMidi
                     triggeroff[i] = m_note_on[i].load(std::memory_order_relaxed);
                 }
             }
+        // One string can only sound one fret: drop candidates that lose their
+        // string to a stronger one. Only consulted with the per-string head.
+        if (m_perString && m_model.hasStringOutput())
+            m_perStringSuppressed +=
+                resolveOneNotePerString(triggeron, string_data);
+
         for (int i = 0; i < NUM_NOTES; i++)
         {
             if (triggeron[i])
@@ -438,6 +447,7 @@ namespace GuitarMidi
         stats.late = m_late;
         stats.noteOns = m_noteOns;
         stats.notesFiltered = m_notesFiltered;
+        stats.perStringSuppressed = m_perStringSuppressed;
         stats.invokeFailures = m_model.invokeFailures();
         stats.meanInferenceMs = m_model.meanInferenceMs();
         stats.maxInferenceMs = m_model.maxInferenceMs();

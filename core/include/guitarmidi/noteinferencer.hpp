@@ -28,6 +28,7 @@
 #include <guitarmidi/notepostprocess.hpp>
 #include <guitarmidi/pitchtracker.hpp>
 #include <guitarmidi/onset.hpp>
+#include <guitarmidi/perstring.hpp>
 
 namespace GuitarMidi
 {
@@ -56,6 +57,7 @@ namespace GuitarMidi
         {
             uint64_t stamp = 0;
             float probabilities[NUM_NOTES] = {};
+            float stringProbabilities[NUM_STRINGS * NUM_FRETS] = {};
         };
 
         ModelInferencer m_model;
@@ -92,6 +94,8 @@ namespace GuitarMidi
         uint64_t m_streamGaps = 0;
         uint64_t m_noteOns = 0;
         uint64_t m_notesFiltered = 0;
+        uint64_t m_perStringSuppressed = 0;
+        int m_perString = 0;
 
         // Note post-processing (scale, transpose, channel routing) and the
         // pitch/channel each tracked note was actually emitted on, so note-offs
@@ -115,7 +119,8 @@ namespace GuitarMidi
         /** Moves finished results into the pending queue and notices gaps. */
         void drainResults(int64_t pos);
         /** Applies the thresholds for one result and emits MIDI at `pos`. */
-        void applyResult(const float *probabilities, int64_t pos);
+        void applyResult(const float *probabilities, const float *stringProbabilities,
+                         int64_t pos);
         /** Emits the results whose scheduled hop has arrived. */
         void emitDueResults(int64_t pos);
         /** Releases every held note and clears the smoothing state. */
@@ -159,6 +164,9 @@ namespace GuitarMidi
 
         /** Guitar tuning offset: the detected note is reported this much lower. */
         void setTuningOffset(int semitones) { m_tuningOffset = semitones; }
+
+        /** One note per string, using the model's per-string head (0/1). */
+        void setPerString(int enabled) { m_perString = enabled; }
 
         /** Note post-processing: scale, root, transpose and channel routing. */
         void setScale(int scale) { m_post.scale = scale; }

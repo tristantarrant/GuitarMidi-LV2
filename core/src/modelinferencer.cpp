@@ -27,7 +27,7 @@ namespace GuitarMidi
         // the stamp, so the interpreter's input tensor is only touched by this
         // thread and the queue performs exactly one copy.
         static thread_local float input_frame[NUM_NOTES * NUM_HARMONICS * BUFFER_SIZE];
-        static thread_local float output_frame[NUM_NOTES];
+        static thread_local float output_frame[kFrameValues];
 
         uint32_t seen = m_wake.load(std::memory_order_acquire);
         while (!m_stop.load(std::memory_order_acquire))
@@ -74,7 +74,14 @@ namespace GuitarMidi
                 std::this_thread::sleep_for(std::chrono::milliseconds(artificial_delay));
 
             std::memcpy(output_frame, m_interpreter->typed_output_tensor<float>(0),
-                        sizeof(output_frame));
+                        NUM_NOTES * sizeof(float));
+            if (m_has_string_output)
+                std::memcpy(output_frame + NUM_NOTES,
+                            m_interpreter->typed_output_tensor<float>(1),
+                            kStringValues * sizeof(float));
+            else
+                std::memset(output_frame + NUM_NOTES, 0,
+                            kStringValues * sizeof(float));
             // A full output queue refuses the frame rather than overwriting an
             // older result; NoteInferencer sees the resulting stamp hole and
             // flushes its note state.
@@ -109,6 +116,13 @@ namespace GuitarMidi
             g_logger.error("Could not build the interpreter\n");
             return false;
         }
+        // A model exported with the per-string head has a second output; the
+        // shipped one stops at the 37-note vector.
+        const auto &outputs = m_interpreter->outputs();
+        m_has_string_output =
+            outputs.size() >= 2 &&
+            m_interpreter->tensor(outputs[1])->bytes >=
+                static_cast<int>(kStringValues * sizeof(float));
         TfLiteXNNPackDelegateOptions xnnpack_options =
             TfLiteXNNPackDelegateOptionsDefault();
         // NUM_INFERENCE_THREADS == 0 means "auto": leave at least one core for
@@ -137,6 +151,7 @@ namespace GuitarMidi
         }
         tflite::LoggerOptions::SetMinimumLogSeverity(tflite::TFLITE_LOG_ERROR);
         g_logger.info("Model loaded and interpreter initialized successfully.\n");
+        g_logger.info("Per-string head: %s\n", m_has_string_output ? "yes" : "no");
         g_logger.info("Inference thread count: %d\n", static_cast<int>(threads));
         g_logger.info("Ring buffer size: %d frames\n", RING_BUFFER_SIZE);
         return true;

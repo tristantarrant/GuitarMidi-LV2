@@ -63,6 +63,7 @@ Note post-processing (applied to the emitted MIDI, after detection):
 * **Low Channel** — [1, 16], default `1`. Also the channel for every note while the split is off.
 * **High Channel** — [1, 16], default `1`.
 * **Bend Range (semitones)** — [0.0, 24.0], default `2.0`. While a single note sounds the plugin tracks its pitch and sends pitch bend, so bends, vibrato and slides come through as bend instead of retriggers. Set this to the bend range of the instrument you are driving; `0` disables the tracker.
+* **One Note Per String** — [0, 1], default `0`. Uses the model's per-string head (needs a model exported with it; see `python/neuralnetmodelling/export_two_head.py`) to drop notes that would require two frets on the same string at once, which are usually harmonic ghosts. Off by default because it changes detection and still needs evaluation on real playing.
 * **MPE Output** — [0, 1], default `0`. When on, every sounding note gets its own member channel (2…16, oldest stolen when all are busy) so an MPE instrument can apply per-note expression. Per-string articulation needs the model exported with its string/fret tensor as an output; see `docs/improvement-plan.md`.
 * **Tuning (semitones)** — [-12, 12], default `0`. Shifts the analysis and the emitted notes together, so a guitar tuned down (or a capo) is reported at its sounding pitch. The model stays in its trained range because the filter bank does the shift.
 

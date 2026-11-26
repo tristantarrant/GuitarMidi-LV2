@@ -147,6 +147,7 @@ public:
     virtual void setHighChannel(int channel){ m_noteinferencer.setHighChannel(channel); }
     virtual void setMpe(int enabled){ m_noteinferencer.setMpe(enabled); }
     virtual void setBendRange(float* range){ m_noteinferencer.setBendRange(range); }
+    virtual void setPerString(int enabled){ m_noteinferencer.setPerString(enabled); }
 
     /** Sets the filter and inference gain control. */
     virtual void setGain(float* gain_db){

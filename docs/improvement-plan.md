@@ -171,13 +171,14 @@ threshold admits/rejects the same signal level.
   item 3 gives per-note bends — the MPE behaviour the comparison notes
   Stringler only partially has.
 
-  State: the MPE half is implemented (`mpe` port, member channels 2..16).
-  The per-string half needs the model exported with its `string_combined`
-  tensor (256x78) as an additional output. The graph already computes it -
-  `python/neuralnetmodelling/model.py` scatters it into
-  `sparse_guitar_output` - so this is an export change, not a retrain, but
-  it does change the shipped model artifact and the inference output
-  format.
+  State: the MPE half is implemented (`mpe` port, member channels 2..16),
+  and the pipeline now carries the per-string head when the model has one
+  (115-float result frames, `perstring` port, pure resolver with tests).
+  The model itself still needs the re-export:
+  `python/neuralnetmodelling/export_two_head.py` does it from
+  `guitarmidi.weights.h5` and validates that the note output is the scatter
+  of the string output. Running it needs Python 3.11/3.12 and TensorFlow
+  >= 2.16; no retraining and no GPU.
 
 ## 7. Sub-hop onset placement
 

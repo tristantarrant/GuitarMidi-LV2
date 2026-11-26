@@ -57,9 +57,15 @@ namespace GuitarMidi
 {
 class ModelInferencer
 {
+public:
+    /** Size of the per-string head: 6 strings x 13 frets. */
+    static constexpr size_t kStringValues = NUM_STRINGS * NUM_FRETS;
+    /** One result frame: 37 note probabilities followed by the 78 string values. */
+    static constexpr size_t kFrameValues = NUM_NOTES + kStringValues;
+
 private:
     using InputQueue = SpscRingBuffer<RING_BUFFER_SIZE, NUM_NOTES * NUM_HARMONICS * BUFFER_SIZE>;
-    using OutputQueue = SpscRingBuffer<RING_BUFFER_SIZE, NUM_NOTES>;
+    using OutputQueue = SpscRingBuffer<RING_BUFFER_SIZE, kFrameValues>;
 
     std::unique_ptr<FlatBufferModel> m_model;
     std::unique_ptr<Interpreter> m_interpreter;
@@ -76,6 +82,7 @@ private:
     std::atomic<uint64_t> m_infer_count{0};
     std::atomic<int> m_inference_delay_ms{0};
     std::atomic<int> m_backpressure_ms{0};
+    bool m_has_string_output = false;
     std::atomic<uint64_t> m_invoke_failures{0};
 
     /** Runs model inference on frames received from the audio thread. */
@@ -106,6 +113,8 @@ public:
     bool get_model_output(float *output, uint64_t &stamp);
 
     uint64_t inputDropped() const { return m_input_queue.dropped(); }
+    /** True when the loaded model exposes the 6 x 13 string/fret head. */
+    bool hasStringOutput() const { return m_has_string_output; }
     uint64_t invokeFailures() const;
     uint64_t outputDropped() const { return m_output_queue.dropped(); }
 

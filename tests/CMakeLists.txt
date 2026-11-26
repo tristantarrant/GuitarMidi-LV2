@@ -8,6 +8,9 @@ add_test(NAME ringbuffer COMMAND test_ringbuffer)
 add_executable(test_postprocess test_postprocess.cpp)
 add_test(NAME postprocess COMMAND test_postprocess)
 
+add_executable(test_perstring test_perstring.cpp)
+add_test(NAME perstring COMMAND test_perstring)
+
 add_executable(test_resampler_latency test_resampler_latency.cpp)
 target_link_libraries(test_resampler_latency PRIVATE guitarmidi_core)
 add_test(NAME resampler_latency COMMAND test_resampler_latency)
