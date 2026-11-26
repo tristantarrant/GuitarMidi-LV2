@@ -130,6 +130,27 @@ Reading the numbers:
   instead of the hop end, the same phrase measures 29.15 ms mean / 31.40 ms
   max at block 256 (was 32.32 / 34.65), sd 1.32 ms.
 
+## Non-48 kHz rates
+
+The plugin analyses at 48 kHz and resamples anything else with zita-resampler.
+`tests/test_resampler_latency` feeds an impulse through the same prefill and
+block handling the plugin uses:
+
+| prefill | inpdist | impulse delay |
+|---|---|---|
+| `inpsize() - 1` (what the plugin did) | +16 … +64 input samples | 0.34 ms at every rate |
+| `inpsize() / 2 - 1` (documented) | 0 | 0.00–0.10 host frames |
+
+The plugin was priming with twice the documented amount, which delayed the
+output by a constant half filter (~0.34 ms). Fixed; end-to-end at 44.1 kHz the
+reported mean went from 30.98 to 30.75 ms. The remaining small spread between
+rates is the detector's response to the resampled signal, not delay, so it is
+not added to `lv2:latency`.
+
+`lv2:latency` is defined in host frames, while the pipeline delay is a count of
+48 kHz samples. The port now converts: 768 frames at 48 kHz, 706 at 44.1 kHz,
+1536 at 96 kHz, 3072 at 192 kHz.
+
 ## Reproducing
 
 ```bash

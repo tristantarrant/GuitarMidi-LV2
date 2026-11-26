@@ -206,7 +206,10 @@ public:
     /** Constant pipeline delay in frames (analysis window + scheduling). */
     virtual uint32_t getLatencyFrames() const
     {
-        return NoteInferencer::latencyFrames();
+        // The pipeline delay lives in the 48 kHz analysis domain; the port is
+        // read in host frames.
+        return GuitarMidi::nativeToHostFrames(NoteInferencer::latencyFrames(),
+                                              m_samplerate);
     }
 
     /** Pipeline counters and inference timings. */

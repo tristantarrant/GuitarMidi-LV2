@@ -60,8 +60,12 @@ bool FretBoard::initialize(const std::string &bundle_path, int samplerate, int b
             g_logger.error("Failed to setup resampler");
             return false;
         }
-        // Initialise the resamplers for zero delay.
-        m_resampler.inp_count = m_resampler.inpsize() - 1;
+        // Prefill with inpsize()/2 - 1 zeroes, which is what makes the first
+        // output sample correspond to the first input sample (see the
+        // zita-resampler manual, "inpdist"). Priming with inpsize() - 1, as
+        // this used to, adds half a filter of delay: about 0.34 ms at every
+        // non-48 kHz rate, measured by tests/test_resampler_latency.cpp.
+        m_resampler.inp_count = m_resampler.inpsize() / 2 - 1;
         m_resampler.inp_data = 0;
         m_resampler.out_count = 999999;
         m_resampler.out_data = 0;

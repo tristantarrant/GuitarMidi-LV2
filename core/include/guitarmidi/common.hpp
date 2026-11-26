@@ -17,6 +17,7 @@
  * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA  02110-1301  USA
  */
+#include <cmath>
 #include <cstdint>
 #include <guitarmidi/logging.hpp>
 
@@ -93,6 +94,20 @@ namespace GuitarMidi
     * staleDropped counts results too old to be useful; late counts results
     * that missed their scheduled hop but were still emitted.
     */
+    /**
+     * Converts a delay expressed in the native (48 kHz) analysis domain to
+     * frames of the host timeline. lv2:latency is defined in host frames, so at
+     * 96 kHz the same analysis delay is twice as many frames as at 48 kHz.
+     */
+    inline uint32_t nativeToHostFrames(uint32_t nativeFrames, double hostRate,
+                                       double nativeRate = NATIVE_SAMPLERATE)
+    {
+        if (hostRate <= 0.0 || nativeRate <= 0.0)
+            return nativeFrames;
+        return static_cast<uint32_t>(
+            std::lround(nativeFrames * hostRate / nativeRate));
+    }
+
     struct NoteInferenceStats
     {
         uint64_t hopsProcessed = 0;
