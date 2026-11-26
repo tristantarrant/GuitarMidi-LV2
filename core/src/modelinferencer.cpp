@@ -73,11 +73,11 @@ namespace GuitarMidi
             if (artificial_delay > 0)
                 std::this_thread::sleep_for(std::chrono::milliseconds(artificial_delay));
 
-            std::memcpy(output_frame, m_interpreter->typed_output_tensor<float>(0),
+            std::memcpy(output_frame, m_interpreter->typed_tensor<float>(m_notes_output),
                         NUM_NOTES * sizeof(float));
             if (m_has_string_output)
                 std::memcpy(output_frame + NUM_NOTES,
-                            m_interpreter->typed_output_tensor<float>(1),
+                            m_interpreter->typed_tensor<float>(m_strings_output),
                             kStringValues * sizeof(float));
             else
                 std::memset(output_frame + NUM_NOTES, 0,
@@ -116,13 +116,26 @@ namespace GuitarMidi
             g_logger.error("Could not build the interpreter\n");
             return false;
         }
-        // A model exported with the per-string head has a second output; the
-        // shipped one stops at the 37-note vector.
-        const auto &outputs = m_interpreter->outputs();
-        m_has_string_output =
-            outputs.size() >= 2 &&
-            m_interpreter->tensor(outputs[1])->bytes >=
-                static_cast<int>(kStringValues * sizeof(float));
+        // Classify the outputs by size, not position: the converter is free to
+        // order a two-head model however it likes (it emits 78 before 37 in
+        // practice). A model without the per-string head has only the notes.
+        m_notes_output = -1;
+        m_strings_output = -1;
+        for (int index : m_interpreter->outputs())
+        {
+            const int elements = m_interpreter->tensor(index)->bytes /
+                                 static_cast<int>(sizeof(float));
+            if (elements == NUM_NOTES && m_notes_output < 0)
+                m_notes_output = index;
+            else if (elements == static_cast<int>(kStringValues) && m_strings_output < 0)
+                m_strings_output = index;
+        }
+        if (m_notes_output < 0)
+        {
+            g_logger.error("Model has no %d-value note output\n", NUM_NOTES);
+            return false;
+        }
+        m_has_string_output = m_strings_output >= 0;
         TfLiteXNNPackDelegateOptions xnnpack_options =
             TfLiteXNNPackDelegateOptionsDefault();
         // NUM_INFERENCE_THREADS == 0 means "auto": leave at least one core for

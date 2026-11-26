@@ -83,6 +83,8 @@ private:
     std::atomic<int> m_inference_delay_ms{0};
     std::atomic<int> m_backpressure_ms{0};
     bool m_has_string_output = false;
+    int m_notes_output = -1;
+    int m_strings_output = -1;
     std::atomic<uint64_t> m_invoke_failures{0};
 
     /** Runs model inference on frames received from the audio thread. */

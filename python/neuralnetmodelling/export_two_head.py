@@ -18,11 +18,18 @@ Run it in a Python 3.11/3.12 environment with TensorFlow >= 2.16:
     python export_two_head.py --weights guitarmidi.weights.h5 \
                               --out guitarmidi_two_head.tflite
 
+Note: the checked-in guitarmidi.weights.h5 predates the current architecture
+(15 layers fail to load from it). The authoritative weights are the
+model.weights.h5 member of guitarmidi.keras, which this script uses by default.
+
 Note: build_1d_cnn_model's default input_shape omits the channel dimension;
 callers pass common.INPUT_SHAPE, which is what this script does.
 """
 import argparse
+import os
 import sys
+import tempfile
+import zipfile
 
 import numpy as np
 import tensorflow as tf
@@ -31,6 +38,21 @@ from model import build_1d_cnn_model, mask, N_FRETS, N_STRINGS
 
 INPUT_SHAPE = (148, 256, 1)   # height, width, channels (common.INPUT_SHAPE)
 NUM_NOTES = 37
+
+
+def resolve_weights(path):
+    """Returns usable weights: the explicit path, or the ones inside the
+    .keras archive (the loose .h5 in the repo is from an older build)."""
+    if path:
+        return path
+    if os.path.exists("guitarmidi.keras"):
+        handle = tempfile.NamedTemporaryFile(suffix=".weights.h5", delete=False)
+        with zipfile.ZipFile("guitarmidi.keras") as archive:
+            handle.write(archive.read("model.weights.h5"))
+        handle.close()
+        print("using weights extracted from guitarmidi.keras")
+        return handle.name
+    return "guitarmidi.weights.h5"
 
 
 def build_two_head_model(weights):
@@ -48,11 +70,12 @@ def build_two_head_model(weights):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--weights", default="guitarmidi.weights.h5")
+    parser.add_argument("--weights", default="",
+                        help="default: model.weights.h5 inside guitarmidi.keras")
     parser.add_argument("--out", default="guitarmidi_two_head.tflite")
     args = parser.parse_args()
 
-    model = build_two_head_model(args.weights)
+    model = build_two_head_model(resolve_weights(args.weights))
     print("keras input:", model.input_shape)
     print("keras outputs:", [t.shape for t in model.outputs])
 
@@ -77,18 +100,21 @@ def main():
         problems.append("input is not 148x256 per frame")
     if len(outputs) != 2:
         problems.append("expected two outputs")
-    if len(outputs) == 2 and int(np.prod(outputs[0]["shape"])) != NUM_NOTES:
-        problems.append("first output is not 37 notes")
-    if len(outputs) == 2 and int(np.prod(outputs[1]["shape"])) != N_STRINGS * N_FRETS:
-        problems.append("second output is not 6x13")
+    by_size = {}
+    for output in outputs:
+        by_size[int(np.prod(output["shape"]))] = output
+    if NUM_NOTES not in by_size:
+        problems.append("no 37-value note output")
+    if N_STRINGS * N_FRETS not in by_size:
+        problems.append("no 78-value string output")
 
     if not problems:
         rng = np.random.default_rng(1)
         frame = rng.random(inputs[0]["shape"], dtype=np.float32)
         interpreter.set_tensor(inputs[0]["index"], frame)
         interpreter.invoke()
-        notes = interpreter.get_tensor(outputs[0]["index"]).reshape(-1)
-        strings = interpreter.get_tensor(outputs[1]["index"]).reshape(-1)
+        notes = interpreter.get_tensor(by_size[NUM_NOTES]["index"]).reshape(-1)
+        strings = interpreter.get_tensor(by_size[N_STRINGS * N_FRETS]["index"]).reshape(-1)
         # The note output must be the "OR" scatter of the string output.
         scattered = 1.0 - np.prod(
             1.0 - strings.reshape(-1, 1) * mask.astype(np.float32), axis=0)
