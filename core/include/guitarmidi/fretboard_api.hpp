@@ -185,6 +185,21 @@ public:
 
     /** Copies decimated signed waveform samples for every filter. */
     virtual void getFilterWaveforms(float *waveforms, uint32_t samples_per_filter) const = 0;
+
+    /**
+     * Post-gain input level of the accumulated audio, in dBFS. `reset`
+     * restarts the window, so a caller polling at a fixed rate (the debug
+     * sender, 20 Hz) gets the level of the interval since its last call.
+     */
+    virtual void getInputLevel(float &rms_db, float &peak_db, bool reset = false) = 0;
+
+    /**
+     * Level of the last completed audio block, in dBFS (after the gain
+     * control). Unlike getInputLevel() this does not reset an interval, so it
+     * can be polled once per run() and written to output control ports (the
+     * MOD modgui meter reads it that way).
+     */
+    virtual void getLastInputLevel(float &rms_db, float &peak_db) = 0;
 };
 
 FretBoardAPI *creatFretBoard(GuitarMidiOutput*);

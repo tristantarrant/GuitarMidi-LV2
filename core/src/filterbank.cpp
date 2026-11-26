@@ -1,5 +1,6 @@
 // filterbank.cpp
 #include <guitarmidi/filterbank.hpp>
+#include <algorithm>
 #include <complex>
 #include <cmath>
 #include <cmath>
@@ -10,6 +11,13 @@
 #endif
 using namespace GuitarMidi;
 using cd = std::complex<double>;
+
+// Amplitude -> dBFS, clamped to the meter floor (-80 dB) so the value handed to
+// the meter control ports always stays inside their declared range.
+static float level_db(float amplitude)
+{
+    return std::max(-80.0f, 20.0f * std::log10(amplitude + 1.0e-9f));
+}
 
 // Design a 4th-order Butterworth bandpass filter using the bilinear transform method.
 static void design_butterworth_bandpass_N2(
@@ -138,6 +146,30 @@ void FilterBank::reset()
     m_current_buffer_offset = 0;
     m_waveform_sample_phase = 0;
     m_waveform_capture_column = 0;
+    m_input_sum_squares = 0.0;
+    m_input_sample_count = 0;
+    m_input_peak = 0.0f;
+    m_block_sum_squares = 0.0;
+    m_block_sample_count = 0;
+    m_block_peak = 0.0f;
+    m_last_rms_db = -80.0f;
+    m_last_peak_db = -80.0f;
+}
+
+void FilterBank::getInputLevel(float &rms_db, float &peak_db, bool reset)
+{
+    const double mean_square = m_input_sample_count
+        ? m_input_sum_squares / static_cast<double>(m_input_sample_count) : 0.0;
+    const double rms = std::sqrt(mean_square);
+    rms_db = 20.0f * std::log10(static_cast<float>(rms) + 1.0e-9f);
+    peak_db = 20.0f * std::log10(m_input_peak + 1.0e-9f);
+
+    if (reset)
+    {
+        m_input_sum_squares = 0.0;
+        m_input_sample_count = 0;
+        m_input_peak = 0.0f;
+    }
 }
 
 void FilterBank::captureFrame()
@@ -172,6 +204,15 @@ void FilterBank::process(int nsamples,int pos)
         }
         // nsamples + pos is expected to be smaller then the buffersize. not asserting here for performance reasons
         const float x = gain * m_input[n+pos];
+        m_input_sum_squares += static_cast<double>(x) * static_cast<double>(x);
+        ++m_input_sample_count;
+        const float abs_x = std::fabs(x);
+        if (abs_x > m_input_peak)
+            m_input_peak = abs_x;
+        m_block_sum_squares += static_cast<double>(x) * static_cast<double>(x);
+        ++m_block_sample_count;
+        if (abs_x > m_block_peak)
+            m_block_peak = abs_x;
         for (int f = 0; f < NUM_FILTERS; ++f)
         {
             const float b0_0 = m_b0[f][0], b1_0 = m_b1[f][0], b2_0 = m_b2[f][0];
@@ -235,6 +276,18 @@ void FilterBank::process(int nsamples,int pos)
             m_s1[f][1] = s1_1;
             m_s2[f][1] = s2_1;
         }
+    }
+
+    // Publish this block's level for the meter output ports, then start a new
+    // window. The debug accumulators above keep running until their own reset.
+    if (m_block_sample_count > 0)
+    {
+        const double mean_square = m_block_sum_squares / static_cast<double>(m_block_sample_count);
+        m_last_rms_db = level_db(static_cast<float>(std::sqrt(mean_square)));
+        m_last_peak_db = level_db(m_block_peak);
+        m_block_sum_squares = 0.0;
+        m_block_sample_count = 0;
+        m_block_peak = 0.0f;
     }
 
     m_current_buffer_offset += nsamples;

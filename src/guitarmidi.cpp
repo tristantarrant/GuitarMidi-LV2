@@ -65,6 +65,8 @@ static constexpr uint32_t MIDI_IN_PORT = 24;
 static constexpr uint32_t MPE_PORT = 25;
 static constexpr uint32_t BEND_RANGE_PORT = 26;
 static constexpr uint32_t PER_STRING_PORT = 27;
+static constexpr uint32_t IN_LEVEL_PORT = 28;
+static constexpr uint32_t IN_PEAK_PORT = 29;
 #else
 static constexpr uint32_t DEBUG_DATA_PORT = 10;
 static constexpr uint32_t LATENCY_PORT = 11;
@@ -74,6 +76,8 @@ static constexpr uint32_t MIDI_IN_PORT = 20;
 static constexpr uint32_t MPE_PORT = 21;
 static constexpr uint32_t BEND_RANGE_PORT = 22;
 static constexpr uint32_t PER_STRING_PORT = 23;
+static constexpr uint32_t IN_LEVEL_PORT = 24;
+static constexpr uint32_t IN_PEAK_PORT = 25;
 #endif
 static constexpr int MAX_MIDI_INPUT_EVENTS = 64;
 // Note post-processing ports, in order, starting at NOTE_FILTER_PORT.
@@ -96,6 +100,8 @@ struct GuitarMidiPlugin
 	LV2_Atom_Sequence *debug_output = nullptr;
 	LV2_Atom_Forge debug_forge;
 	float *latency_output = nullptr;
+	float *in_level_output = nullptr;
+	float *in_peak_output = nullptr;
 	LV2_Atom_Sequence *midi_input = nullptr;
 	LV2_URID midi_event = 0;
 	float debug_tick = 0.0f;
@@ -214,6 +220,16 @@ connect_port(LV2_Handle instance,
 	if (port == LATENCY_PORT)
 	{
 		plugin->latency_output = (float *)data;
+		return;
+	}
+	if (port == IN_LEVEL_PORT)
+	{
+		plugin->in_level_output = (float *)data;
+		return;
+	}
+	if (port == IN_PEAK_PORT)
+	{
+		plugin->in_peak_output = (float *)data;
 		return;
 	}
 	if (port == ENABLED_PORT)
@@ -351,6 +367,20 @@ run(LV2_Handle instance, uint32_t n_samples)
 	if (plugin->latency_output)
 		*plugin->latency_output = (float)plugin->fretboard->getLatencyFrames();
 
+	// Input level meter ports (read by the MOD modgui through
+	// modgui:monitoredOutputs). This is the level of the previous block, the
+	// one that was complete when the host called us.
+	if (plugin->in_level_output || plugin->in_peak_output)
+	{
+		float input_rms_db = -80.0f;
+		float input_peak_db = -80.0f;
+		plugin->fretboard->getLastInputLevel(input_rms_db, input_peak_db);
+		if (plugin->in_level_output)
+			*plugin->in_level_output = input_rms_db;
+		if (plugin->in_peak_output)
+			*plugin->in_peak_output = input_peak_db;
+	}
+
 	// Decode the incoming MIDI sequence into plain messages for the engine.
 	GuitarMidi::MidiInputEvent events[MAX_MIDI_INPUT_EVENTS];
 	int eventCount = 0;
@@ -385,7 +415,10 @@ run(LV2_Handle instance, uint32_t n_samples)
 		{
 			if (send_debug_data)
 			{
-				float values[NUM_NOTES * 4 + NUM_FILTERS * FILTER_WAVEFORM_SAMPLES + 1];
+				// Layout: 4 note plots, the filter waveforms, a tick, then the
+				// input meter (rms dB, peak dB). Appending keeps the existing
+				// offsets stable for the UI and the JUCE AnalysisApp.
+				float values[NUM_NOTES * 4 + NUM_FILTERS * FILTER_WAVEFORM_SAMPLES + 1 + 2];
 				float smoothed_energies[NUM_NOTES];
 				float momentary_confidences[NUM_NOTES];
 				float momentary_energies[NUM_NOTES];
@@ -404,10 +437,18 @@ run(LV2_Handle instance, uint32_t n_samples)
 				plugin->debug_tick = 1.0f - plugin->debug_tick;
 				values[NUM_NOTES * 4 + NUM_FILTERS * FILTER_WAVEFORM_SAMPLES] = plugin->debug_tick;
 
+				// Input meter: measured since the previous packet (reset), so
+				// every packet covers its own 20 Hz interval.
+				float input_rms_db = -180.0f;
+				float input_peak_db = -180.0f;
+				plugin->fretboard->getInputLevel(input_rms_db, input_peak_db, true);
+				values[NUM_NOTES * 4 + NUM_FILTERS * FILTER_WAVEFORM_SAMPLES + 1] = input_rms_db;
+				values[NUM_NOTES * 4 + NUM_FILTERS * FILTER_WAVEFORM_SAMPLES + 2] = input_peak_db;
+
 				lv2_atom_forge_frame_time(&plugin->debug_forge, 0);
 				lv2_atom_forge_vector(&plugin->debug_forge, sizeof(float),
 					plugin->debug_forge.Float,
-					NUM_NOTES * 4 + NUM_FILTERS * FILTER_WAVEFORM_SAMPLES + 1, values);
+					NUM_NOTES * 4 + NUM_FILTERS * FILTER_WAVEFORM_SAMPLES + 1 + 2, values);
 			}
 			lv2_atom_forge_pop(&plugin->debug_forge, &sequence_frame);
 		}

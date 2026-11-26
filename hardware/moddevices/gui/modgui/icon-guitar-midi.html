@@ -1,47 +1,333 @@
-<div class="mod-pedal mod-pedal-boxy{{{cns}}} mod-four-knobs mod-boxy75 mod-{{color}} {{color}}">
+<div class="mod-pedal gm-pedal">
     <div mod-role="drag-handle" class="mod-drag-handle"></div>
-    <div class="mod-plugin-brand"><h1>{{brand}}</h1></div>
-    <div class="mod-plugin-name"><h1>{{label}}</h1></div>
-    <div class="mod-light on" mod-role="bypass-light"></div>
-    <div class="mod-control-group mod-enumerated-group bottom clearfix">
-        {{#controls.0}}
-        <div class="mod-enumerated" mod-role="input-control-port" mod-port-symbol="{{symbol}}" mod-widget="custom-select">
-          <div mod-role="input-control-value" mod-port-symbol="{{symbol}}" class="mod-enumerated-selected"></div>
-          <div class="mod-enumerated-list">
-            {{#scalePoints}}
-            <div mod-role="enumeration-option" mod-port-value="{{value}}">{{label}}</div>
-            {{/scalePoints}}
-          </div>
+
+    <div class="gm-brand">Drift Audio</div>
+    <div class="gm-label">Guitar Midi</div>
+    <div class="gm-sub">neural guitar to MIDI</div>
+    <div class="mod-light gm-led on" mod-role="bypass-light"></div>
+
+    <!-- INPUT ------------------------------------------------------------ -->
+    <div class="gm-panel gm-p1 gm-acc-blue">
+        <div class="gm-title">INPUT</div>
+        <div class="gm-knob gm-gain">
+            <div class="gm-cap">GAIN</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="gain" mod-widget="film"
+                 title="Input Gain (dB): add gain to the input signal prior to processing"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="gain"></span>
         </div>
-        {{/controls.0}}
+        <div class="gm-knob gm-expr">
+            <div class="gm-cap">EXPRESSIVITY</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="expressivity" mod-widget="film"
+                 title="Expressivity (dB): the range of the attack velocity mapped to the outgoing note velocity"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="expressivity"></span>
+        </div>
     </div>
-    <div class="mod-control-group mod-{{knob}} top clearfix">
-        {{#controls.1}}
-        <div class="mod-knob" title="{{comment}}">
-            <div class="mod-knob-image" mod-role="input-control-port" mod-port-symbol="{{symbol}}"></div>
-            <span class="mod-knob-title">{{name}}</span>
+
+    <!-- TRACKING --------------------------------------------------------- -->
+    <div class="gm-panel gm-p2 gm-acc-blue">
+        <div class="gm-title">TRACKING</div>
+        <div class="gm-knob gm-tuning">
+            <div class="gm-cap">TUNING</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="tuning" mod-widget="film"
+                 title="Tuning (semitones): guitar tuning offset for a detuned guitar"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="tuning"></span>
         </div>
-        {{/controls.1}}
-        {{#controls.2}}
-        <div class="mod-knob" title="{{comment}}">
-            <div class="mod-knob-image" mod-role="input-control-port" mod-port-symbol="{{symbol}}"></div>
-            <span class="mod-knob-title">{{name}}</span>
+        <div class="gm-knob gm-bendrange">
+            <div class="gm-cap">BEND RANGE</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="bendrange" mod-widget="film"
+                 title="Bend Range (semitones): pitch bend range used for tracked bends, 0 disables bend output"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="bendrange"></span>
         </div>
-        {{/controls.2}}
-        {{#controls.3}}
-        <div class="mod-knob" title="{{comment}}">
-            <div class="mod-knob-image" mod-role="input-control-port" mod-port-symbol="{{symbol}}"></div>
-            <span class="mod-knob-title">{{name}}</span>
-        </div>
-        {{/controls.3}}
-        {{#controls.4}}
-        <div class="mod-knob" title="{{comment}}">
-            <div class="mod-knob-image" mod-role="input-control-port" mod-port-symbol="{{symbol}}"></div>
-            <span class="mod-knob-title">{{name}}</span>
-        </div>
-        {{/controls.4}}
     </div>
-    <div class="mod-footswitch" mod-role="bypass"></div>
+
+    <!-- NOTE ONSET ------------------------------------------------------- -->
+    <div class="gm-panel gm-p3 gm-acc-teal">
+        <div class="gm-title">NOTE ONSET</div>
+        <div class="gm-knob gm-onsetsmoothing">
+            <div class="gm-cap">SMOOTH</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="onsetsmoothing" mod-widget="film"
+                 title="Onset Smoothing: timewise smoothing of the note begin, smoother but more latency"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="onsetsmoothing"></span>
+        </div>
+        <div class="gm-knob gm-onsetconfthr">
+            <div class="gm-cap">CONF</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="onsetconfthr" mod-widget="film"
+                 title="Onset Confidence Threshold: high values filter out false note starts"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="onsetconfthr"></span>
+        </div>
+        <div class="gm-knob gm-onsetlevel">
+            <div class="gm-cap">LEVEL</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="onsetlevel" mod-widget="film"
+                 title="Onset Level (dBFS): level threshold for a note start, lower is more sensitive"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="onsetlevel"></span>
+        </div>
+    </div>
+
+    <!-- NOTE OFFSET ------------------------------------------------------ -->
+    <div class="gm-panel gm-p4 gm-acc-orange">
+        <div class="gm-title">NOTE OFFSET</div>
+        <div class="gm-knob gm-offsetsmoothing">
+            <div class="gm-cap">SMOOTH</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="offsetsmoothing" mod-widget="film"
+                 title="Offset Smoothing: timewise smoothing of the note ends, lower releases notes faster"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="offsetsmoothing"></span>
+        </div>
+        <div class="gm-knob gm-offsetconfthr">
+            <div class="gm-cap">CONF</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="offsetconfthr" mod-widget="film"
+                 title="Offset Confidence Threshold: lower values make notes linger on"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="offsetconfthr"></span>
+        </div>
+        <div class="gm-knob gm-offsetlevel">
+            <div class="gm-cap">LEVEL</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="offsetlevel" mod-widget="film"
+                 title="Offset Level (dBFS): level threshold for a note end, lower makes notes linger"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="offsetlevel"></span>
+        </div>
+    </div>
+
+    <!-- NOTE FILTER ------------------------------------------------------ -->
+    <div class="gm-panel gm-p5 gm-acc-teal">
+        <div class="gm-title">NOTE FILTER</div>
+        <div class="gm-knob gm-transpose">
+            <div class="gm-cap">TRANSPOSE</div>
+            <div class="gm-dial" mod-role="input-control-port" mod-port-symbol="transpose" mod-widget="film"
+                 title="Transpose (semitones): shift every sent note"></div>
+            <span class="gm-val" mod-role="input-control-value" mod-port-symbol="transpose"></span>
+        </div>
+        <div class="gm-sel gm-scale">
+            <div class="gm-cap">SCALE</div>
+            <select mod-role="input-control-port" mod-port-symbol="scale" mod-widget="select"
+                    title="Scale: keep the sent notes inside this scale, Off passes every detected note">
+                <option value="0">Off</option>
+                <option value="1">Major</option>
+                <option value="2">Natural Minor</option>
+                <option value="3">Harmonic Minor</option>
+                <option value="4">Melodic Minor</option>
+                <option value="5">Dorian</option>
+                <option value="6">Phrygian</option>
+                <option value="7">Lydian</option>
+                <option value="8">Mixolydian</option>
+                <option value="9">Locrian</option>
+                <option value="10">Major Pentatonic</option>
+                <option value="11">Minor Pentatonic</option>
+                <option value="12">Blues</option>
+                <option value="13">Chromatic</option>
+                <option value="14">Whole Tone</option>
+                <option value="15">Diminished</option>
+                <option value="16">Hungarian Minor</option>
+                <option value="17">Phrygian Dominant</option>
+            </select>
+            <span class="gm-caret"></span>
+        </div>
+        <div class="gm-sel gm-scaleroot">
+            <div class="gm-cap">ROOT</div>
+            <select mod-role="input-control-port" mod-port-symbol="scaleroot" mod-widget="select"
+                    title="Scale Root: root note of the selected scale">
+                <option value="0">C</option>
+                <option value="1">C#</option>
+                <option value="2">D</option>
+                <option value="3">D#</option>
+                <option value="4">E</option>
+                <option value="5">F</option>
+                <option value="6">F#</option>
+                <option value="7">G</option>
+                <option value="8">G#</option>
+                <option value="9">A</option>
+                <option value="10">A#</option>
+                <option value="11">B</option>
+            </select>
+            <span class="gm-caret"></span>
+        </div>
+    </div>
+
+    <!-- ROUTING ---------------------------------------------------------- -->
+    <div class="gm-panel gm-p6 gm-acc-orange">
+        <div class="gm-title">ROUTING</div>
+        <div class="gm-sel gm-lowchan">
+            <div class="gm-cap">LOW CH</div>
+            <select mod-role="input-control-port" mod-port-symbol="lowchan" mod-widget="select"
+                    title="Low Channel: MIDI channel for notes below the split note">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
+                <option value="13">13</option>
+                <option value="14">14</option>
+                <option value="15">15</option>
+                <option value="16">16</option>
+            </select>
+            <span class="gm-caret"></span>
+        </div>
+        <div class="gm-sel gm-splitnote">
+            <div class="gm-cap">SPLIT NOTE</div>
+            <select mod-role="input-control-port" mod-port-symbol="splitnote" mod-widget="select"
+                    title="Split Note: first note of the high side, 0 turns splitting off">
+                <option value="0">Off</option>
+                <option value="24">24 C1</option>
+                <option value="25">25 C#1</option>
+                <option value="26">26 D1</option>
+                <option value="27">27 D#1</option>
+                <option value="28">28 E1</option>
+                <option value="29">29 F1</option>
+                <option value="30">30 F#1</option>
+                <option value="31">31 G1</option>
+                <option value="32">32 G#1</option>
+                <option value="33">33 A1</option>
+                <option value="34">34 A#1</option>
+                <option value="35">35 B1</option>
+                <option value="36">36 C2</option>
+                <option value="37">37 C#2</option>
+                <option value="38">38 D2</option>
+                <option value="39">39 D#2</option>
+                <option value="40">40 E2</option>
+                <option value="41">41 F2</option>
+                <option value="42">42 F#2</option>
+                <option value="43">43 G2</option>
+                <option value="44">44 G#2</option>
+                <option value="45">45 A2</option>
+                <option value="46">46 A#2</option>
+                <option value="47">47 B2</option>
+                <option value="48">48 C3</option>
+                <option value="49">49 C#3</option>
+                <option value="50">50 D3</option>
+                <option value="51">51 D#3</option>
+                <option value="52">52 E3</option>
+                <option value="53">53 F3</option>
+                <option value="54">54 F#3</option>
+                <option value="55">55 G3</option>
+                <option value="56">56 G#3</option>
+                <option value="57">57 A3</option>
+                <option value="58">58 A#3</option>
+                <option value="59">59 B3</option>
+                <option value="60">60 C4</option>
+                <option value="61">61 C#4</option>
+                <option value="62">62 D4</option>
+                <option value="63">63 D#4</option>
+                <option value="64">64 E4</option>
+                <option value="65">65 F4</option>
+                <option value="66">66 F#4</option>
+                <option value="67">67 G4</option>
+                <option value="68">68 G#4</option>
+                <option value="69">69 A4</option>
+                <option value="70">70 A#4</option>
+                <option value="71">71 B4</option>
+                <option value="72">72 C5</option>
+                <option value="73">73 C#5</option>
+                <option value="74">74 D5</option>
+                <option value="75">75 D#5</option>
+                <option value="76">76 E5</option>
+                <option value="77">77 F5</option>
+                <option value="78">78 F#5</option>
+                <option value="79">79 G5</option>
+                <option value="80">80 G#5</option>
+                <option value="81">81 A5</option>
+                <option value="82">82 A#5</option>
+                <option value="83">83 B5</option>
+                <option value="84">84 C6</option>
+                <option value="85">85 C#6</option>
+                <option value="86">86 D6</option>
+                <option value="87">87 D#6</option>
+                <option value="88">88 E6</option>
+                <option value="89">89 F6</option>
+                <option value="90">90 F#6</option>
+                <option value="91">91 G6</option>
+                <option value="92">92 G#6</option>
+                <option value="93">93 A6</option>
+                <option value="94">94 A#6</option>
+                <option value="95">95 B6</option>
+                <option value="96">96 C7</option>
+                <option value="97">97 C#7</option>
+                <option value="98">98 D7</option>
+                <option value="99">99 D#7</option>
+                <option value="100">100 E7</option>
+                <option value="101">101 F7</option>
+                <option value="102">102 F#7</option>
+                <option value="103">103 G7</option>
+                <option value="104">104 G#7</option>
+                <option value="105">105 A7</option>
+                <option value="106">106 A#7</option>
+                <option value="107">107 B7</option>
+                <option value="108">108 C8</option>
+                <option value="109">109 C#8</option>
+                <option value="110">110 D8</option>
+                <option value="111">111 D#8</option>
+                <option value="112">112 E8</option>
+                <option value="113">113 F8</option>
+                <option value="114">114 F#8</option>
+                <option value="115">115 G8</option>
+                <option value="116">116 G#8</option>
+                <option value="117">117 A8</option>
+                <option value="118">118 A#8</option>
+                <option value="119">119 B8</option>
+                <option value="120">120 C9</option>
+                <option value="121">121 C#9</option>
+                <option value="122">122 D9</option>
+                <option value="123">123 D#9</option>
+                <option value="124">124 E9</option>
+                <option value="125">125 F9</option>
+                <option value="126">126 F#9</option>
+                <option value="127">127 G9</option>
+            </select>
+            <span class="gm-caret"></span>
+        </div>
+        <div class="gm-sel gm-highchan">
+            <div class="gm-cap">HIGH CH</div>
+            <select mod-role="input-control-port" mod-port-symbol="highchan" mod-widget="select"
+                    title="High Channel: MIDI channel for notes at or above the split note">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
+                <option value="13">13</option>
+                <option value="14">14</option>
+                <option value="15">15</option>
+                <option value="16">16</option>
+            </select>
+            <span class="gm-caret"></span>
+        </div>
+        <div class="gm-sw gm-mpe">
+            <div class="gm-cap">MPE</div>
+            <div class="gm-switch" mod-role="input-control-port" mod-port-symbol="mpe" mod-widget="film"
+                 title="MPE Output: give every sounding note its own MPE member channel with pitch bend"></div>
+        </div>
+        <div class="gm-sw gm-perstring">
+            <div class="gm-cap">1/STRING</div>
+            <div class="gm-switch" mod-role="input-control-port" mod-port-symbol="perstring" mod-widget="film"
+                 title="One Note Per String: allow only one note per guitar string and drop harmonic ghosts"></div>
+        </div>
+    </div>
+
+    <!-- INPUT LEVEL METER: fed by the "inlevel"/"inpeak" output ports through
+         modgui:monitoredOutputs, updated by script-guitar-midi.js -->
+    <div class="gm-meter" title="Input level (post gain, dBFS)">
+        <span class="gm-meter-label">IN</span>
+        <div class="gm-meter-track">
+            <div class="gm-meter-lit">
+                <div class="gm-meter-mask" mod-role="meter-mask"></div>
+                <div class="gm-meter-peak" mod-role="meter-peak"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mod-footswitch gm-foot" mod-role="bypass"></div>
+
     <div class="mod-pedal-input">
         {{#effect.ports.audio.input}}
         <div class="mod-input mod-input-disconnected" title="{{name}}" mod-role="input-audio-port" mod-port-symbol="{{symbol}}">
@@ -53,27 +339,12 @@
             <div class="mod-pedal-input-image"></div>
         </div>
         {{/effect.ports.midi.input}}
-        {{#effect.ports.cv.input}}
-        <div class="mod-input mod-input-disconnected" title="{{name}}" mod-role="input-cv-port" mod-port-symbol="{{symbol}}">
-            <div class="mod-pedal-input-image"></div>
-        </div>
-        {{/effect.ports.cv.input}}
     </div>
     <div class="mod-pedal-output">
-        {{#effect.ports.audio.output}}
-        <div class="mod-output mod-output-disconnected" title="{{name}}" mod-role="output-audio-port" mod-port-symbol="{{symbol}}">
-            <div class="mod-pedal-output-image"></div>
-        </div>
-        {{/effect.ports.audio.output}}
         {{#effect.ports.midi.output}}
         <div class="mod-output mod-output-disconnected" title="{{name}}" mod-role="output-midi-port" mod-port-symbol="{{symbol}}">
             <div class="mod-pedal-output-image"></div>
         </div>
         {{/effect.ports.midi.output}}
-        {{#effect.ports.cv.output}}
-        <div class="mod-output mod-output-disconnected" title="{{name}}" mod-role="output-cv-port" mod-port-symbol="{{symbol}}">
-            <div class="mod-pedal-output-image"></div>
-        </div>
-        {{/effect.ports.cv.output}}
     </div>
 </div>

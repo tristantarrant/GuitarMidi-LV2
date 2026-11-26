@@ -138,6 +138,71 @@ void testTuningShift()
 
 } // namespace
 
+/* The meter output ports (inlevel/inpeak) read the level of the last completed
+ * process() call. That window must be independent of the 20 Hz debug
+ * accumulators: neither polled value may consume the other's samples. */
+void testBlockLevel()
+{
+    GuitarMidi::FretBoardRepresentation representation;
+    const auto filters = representation.get_filterrepresentations();
+    float gainDb = 0.0f;
+
+    GuitarMidi::FilterBank bank;
+    bank.setup(filters, 48000, BUFFER_SIZE);
+    bank.setGain(&gainDb);
+
+    float rms_db = 0.0f;
+    float peak_db = 0.0f;
+    bank.getLastInputLevel(rms_db, peak_db);
+    CHECK(std::fabs(rms_db + 80.0f) < 0.01f);
+    CHECK(std::fabs(peak_db + 80.0f) < 0.01f);
+
+    // 0.5 full scale at 48000/256 Hz: exactly one period per block, so every
+    // block sees RMS -9.03 dBFS and peak -6.02 dBFS.
+    constexpr int kSamples = BUFFER_SIZE * 18;
+    std::vector<float> signal(static_cast<size_t>(kSamples));
+    for (int i = 0; i < kSamples; ++i)
+        signal[i] = static_cast<float>(
+            0.5 * std::sin(2.0 * M_PI * (48000.0 / BUFFER_SIZE) * i / 48000.0));
+    bank.setInput(signal.data());
+
+    for (int offset = 0; offset + BUFFER_SIZE <= kSamples; offset += BUFFER_SIZE)
+    {
+        bank.process(BUFFER_SIZE, offset);
+        bank.getLastInputLevel(rms_db, peak_db);
+        CHECK(std::fabs(rms_db + 9.03f) < 0.02f);
+        CHECK(std::fabs(peak_db + 6.02f) < 0.02f);
+    }
+
+    // Polling the meter must not steal samples from the debug interval, which
+    // still covers everything processed since its last reset.
+    float interval_rms = 0.0f;
+    float interval_peak = 0.0f;
+    bank.getInputLevel(interval_rms, interval_peak);
+    CHECK(std::fabs(interval_rms + 9.03f) < 0.02f);
+    CHECK(std::fabs(interval_peak + 6.02f) < 0.02f);
+
+    // A short chunk reports that chunk (not the whole hop), and silence
+    // reports the floor. Complete the hop first: process() may not cross it.
+    bank.process(100, 0);
+    bank.getLastInputLevel(rms_db, peak_db);
+    CHECK(rms_db > -10.0f && rms_db < -8.0f);
+    bank.process(BUFFER_SIZE - 100, 100);
+
+    std::vector<float> quiet(BUFFER_SIZE, 0.0f);
+    bank.setInput(quiet.data());
+    bank.process(BUFFER_SIZE, 0);
+    bank.getLastInputLevel(rms_db, peak_db);
+    CHECK(rms_db == -80.0f);
+    CHECK(peak_db == -80.0f);
+
+    // reset() returns the meter to the floor as well.
+    bank.reset();
+    bank.getLastInputLevel(rms_db, peak_db);
+    CHECK(rms_db == -80.0f);
+    CHECK(peak_db == -80.0f);
+}
+
 int main()
 {
     constexpr int kTotal = 48000;
@@ -206,6 +271,7 @@ int main()
         CHECK(value == 0.0f);
 
     testTuningShift();
+    testBlockLevel();
 
     if (failures == 0)
         std::printf("test_filterbank_frame: OK (%zu hops compared)\n", reference.size());

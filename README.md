@@ -69,6 +69,10 @@ Note post-processing (applied to the emitted MIDI, after detection):
 
 Notes that are transposed, routed or filtered still release on the channel and pitch they were emitted on, even if these controls change while the note is held.
 
+The **INPUT** panel also has a live input level meter at its bottom: 12 segments from -60 dBFS to 0 dBFS, measured after the Input Gain, with a peak-hold tick and a red **CLIP** indicator that latches for about a second. It is fed by the two level values the plugin appends to its existing debug packet, so it updates at the debug rate (20 Hz), needs no extra port, and stays empty with hosts that do not deliver debug events.
+
+Two output control ports carry the same post-gain level for hosts that cannot read the debug packet (the MOD modgui meter reads them through `modgui:monitoredOutputs`): **Input Level (RMS, dBFS)** (`inlevel`) and **Input Level (Peak, dBFS)** (`inpeak`), both `[-80.0, 0.0]`, reporting the level of the last completed audio block. They are outputs, so they have no defaults and are not meant to be automated.
+
 The plugin also has a **MIDI In** port. Its messages are merged with the tracker's output (so a keyboard can play through the plugin), roughly at block granularity; CC 120 and CC 123 additionally release any notes the tracker is holding. The **Enabled** port is standard LV2 bypass: while bypassed the plugin passes MIDI through, releases its notes and stops detecting.
 
 The plugin also exposes an output control port **Latency** (`lv2:latency`): the

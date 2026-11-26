@@ -44,3 +44,9 @@ else()
 install(FILES ../manifest.ttl ../guitarmidi.ttl ../python/neuralnetmodelling/guitarmidi.tflite
         DESTINATION guitarmidi.lv2)
 endif()
+
+# MOD Devices GUI: the modgui.ttl description plus its self-contained resources
+# (icon template, stylesheet, artwork). Not used by desktop hosts.
+install(FILES ../hardware/moddevices/gui/modgui.ttl DESTINATION guitarmidi.lv2)
+install(DIRECTORY ../hardware/moddevices/gui/modgui DESTINATION guitarmidi.lv2
+        PATTERN "_render*" EXCLUDE)

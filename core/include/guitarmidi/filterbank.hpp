@@ -62,6 +62,20 @@ namespace GuitarMidi{
             float *m_gain_db;
             int m_hostbuffer_size;
             int m_current_buffer_offset;
+            // Input-level metering accumulators for the processed samples,
+            // measured after the gain control (the signal the filters see).
+            double m_input_sum_squares = 0.0;
+            uint64_t m_input_sample_count = 0;
+            float m_input_peak = 0.0f;
+            // Level of the samples of the current process() call. Finished off
+            // into m_last_*_db at the end of the call: a host that reads the
+            // meter from output control ports polls once per run() and must not
+            // disturb (or be disturbed by) the 20 Hz debug accumulators above.
+            double m_block_sum_squares = 0.0;
+            uint64_t m_block_sample_count = 0;
+            float m_block_peak = 0.0f;
+            float m_last_rms_db = -80.0f;
+            float m_last_peak_db = -80.0f;
             uint32_t m_waveform_sample_phase = 0;
             uint32_t m_waveform_capture_column = 0;
             static constexpr uint32_t WAVEFORM_CAPTURE_INTERVAL = NATIVE_SAMPLERATE / 20;
@@ -119,6 +133,25 @@ namespace GuitarMidi{
 
             /** Processes a block of audio through all filters. */
             void process(int nsamples,int pos=0);
+
+            /**
+             * Reads the input level accumulated since the last reset, in dBFS.
+             * The measurement is taken after the gain control, i.e. it is the
+             * signal fed to the filters. `reset` restarts the accumulation
+             * window, so a periodic 20 Hz caller gets one interval per call.
+             */
+            void getInputLevel(float& rms_db,float& peak_db,bool reset=false);
+
+            /**
+             * Level of the last completed process() call, in dBFS (after the
+             * gain control). Unlike getInputLevel() this never resets an
+             * interval, so a host can poll it once per run() from an output
+             * control port. Silence reports the floor, -80 dB.
+             */
+            void getLastInputLevel(float& rms_db,float& peak_db) const{
+                rms_db = m_last_rms_db;
+                peak_db = m_last_peak_db;
+            }
 
             /** Returns the filter-bank output buffer. */
             AudioBuffer2D get_buffer() const{

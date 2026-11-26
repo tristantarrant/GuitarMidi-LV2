@@ -250,6 +250,18 @@ public:
 
     /** Copies decimated signed waveform samples for every filter. */
     virtual void getFilterWaveforms(float *waveforms, uint32_t samples_per_filter) const;
+
+    /** Post-gain input level accumulated since the last reset, in dBFS. */
+    virtual void getInputLevel(float &rms_db, float &peak_db, bool reset = false)
+    {
+        m_filterbank.getInputLevel(rms_db, peak_db, reset);
+    }
+
+    /** Post-gain input level of the last completed audio block, in dBFS. */
+    virtual void getLastInputLevel(float &rms_db, float &peak_db)
+    {
+        m_filterbank.getLastInputLevel(rms_db, peak_db);
+    }
 };
 
 
